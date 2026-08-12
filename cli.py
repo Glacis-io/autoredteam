@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -477,6 +478,36 @@ def cmd_keygen(args: argparse.Namespace) -> int:
     return 0
 
 
+def _verification_output(result: dict) -> dict:
+    """Return the deliberately public, machine-readable verification view.
+
+    The verifier's library result also carries raw SDK and artifact error text
+    for local debugging. Those strings may contain filesystem details and do
+    not belong in a shareable CLI transcript. Likewise, expose a stable hash of
+    the public signing key instead of echoing receipt-controlled key material.
+    """
+    signer_public_key = result.get("signer_public_key")
+    signer_key_fingerprint = (
+        "sha256:"
+        + hashlib.sha256(signer_public_key.encode("ascii")).hexdigest()
+        if signer_public_key
+        else "unavailable"
+    )
+    return {
+        "valid": result["valid"],
+        "status": result["status"],
+        "checks": result["checks"],
+        "signer_key_fingerprint": signer_key_fingerprint,
+        "key_trust": result["key_trust"],
+        "witness_status": result["witness_status"],
+        "current_revocation_status": result["current_revocation_status"],
+        "signature_explanation": result["signature_explanation"],
+        "buyer_signature_verification": result["buyer_signature_verification"],
+        "compatibility": result["compatibility"],
+        "content_check_scope": result["content_check_scope"],
+    }
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     verification_time = None
     if args.at:
@@ -489,15 +520,16 @@ def cmd_verify(args: argparse.Namespace) -> int:
         trusted_public_key=trusted_key,
         now=verification_time,
     )
+    public_result = _verification_output(result)
     if args.json:
-        print(json.dumps(result, indent=2))
+        print(json.dumps(public_result, indent=2))
     else:
         print(f"Fulfillment: {result['status']}")
         print(
             "Signature: "
             + ("PASS" if result["checks"]["signature_valid_under_displayed_key"] else "FAIL")
         )
-        print(f"Signer key: {result['signer_public_key'] or 'unavailable'}")
+        print(f"Signer key fingerprint: {public_result['signer_key_fingerprint']}")
         print(f"Key trust: {result['key_trust']}")
         print(result["signature_explanation"])
         failed = [name for name, passed in result["checks"].items() if not passed]

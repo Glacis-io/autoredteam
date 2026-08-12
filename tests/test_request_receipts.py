@@ -274,6 +274,47 @@ class TestSignedRequestReceipt(unittest.TestCase):
         self.assertNotIn(RAW_SENTINEL, receipt_text)
         self.assertEqual(self.artifacts.private_findings.stat().st_mode & 0o777, 0o600)
 
+    def test_cli_json_is_an_allowlisted_public_verification_view(self) -> None:
+        receipt_path = self.artifacts.receipt
+        signer_public_key = self.receipt["signature"]["attestation"]["public_key"]
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            exit_code = cli.main(
+                [
+                    "verify",
+                    str(receipt_path),
+                    "--requirement",
+                    str(FIXTURE),
+                    "--artifact",
+                    str(self.artifacts.redacted_evidence),
+                    "--trusted-public-key",
+                    signer_public_key,
+                    "--json",
+                ]
+            )
+        self.assertEqual(exit_code, 0)
+        public_result = json.loads(stdout.getvalue())
+        self.assertEqual(
+            set(public_result),
+            {
+                "valid",
+                "status",
+                "checks",
+                "signer_key_fingerprint",
+                "key_trust",
+                "witness_status",
+                "current_revocation_status",
+                "signature_explanation",
+                "buyer_signature_verification",
+                "compatibility",
+                "content_check_scope",
+            },
+        )
+        self.assertNotIn("signature_error", public_result)
+        self.assertNotIn("artifact_error", public_result)
+        self.assertNotIn(signer_public_key, stdout.getvalue())
+        self.assertRegex(public_result["signer_key_fingerprint"], r"^sha256:[0-9a-f]{64}$")
+
     def test_requirement_digest_and_nonce_mismatch(self) -> None:
         different = copy.deepcopy(self.requirement)
         different["nonce"]["value"] = "csVOXQRC0m1YxmlQOrcseaV9DOKEiIcYd6E7LUrzi_0"
