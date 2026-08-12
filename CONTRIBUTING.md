@@ -5,8 +5,8 @@ Thanks for your interest in contributing. Whether it's a bug report, new attack 
 ## Getting Started
 
 ```bash
-git clone https://github.com/glacis-io/auto-redteam.git
-cd auto-redteam
+git clone https://github.com/Glacis-io/autoredteam.git
+cd autoredteam
 pip install -e ".[all]"
 ```
 
@@ -14,7 +14,7 @@ pip install -e ".[all]"
 
 ### Report Bugs
 
-Open an issue using the [bug report template](https://github.com/glacis-io/auto-redteam/issues/new?template=bug_report.yml). Include:
+Open an issue using the [bug report template](https://github.com/Glacis-io/autoredteam/issues/new?template=bug_report.yml). Include:
 
 - What you ran (CLI command or code snippet)
 - What you expected
@@ -23,7 +23,7 @@ Open an issue using the [bug report template](https://github.com/glacis-io/auto-
 
 ### Suggest Features
 
-Open an issue using the [feature request template](https://github.com/glacis-io/auto-redteam/issues/new?template=feature_request.yml).
+Open an issue using the [feature request template](https://github.com/Glacis-io/autoredteam/issues/new?template=feature_request.yml).
 
 ### Add an Attack Pack
 

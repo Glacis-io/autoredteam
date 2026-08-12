@@ -6,10 +6,10 @@ authors:
   - name: Glacis
     email: eng@glacis.io
     website: https://glacis.io
-repository-code: https://github.com/glacis-io/auto-redteam
+repository-code: https://github.com/Glacis-io/autoredteam
 url: https://glacis.io
 license: Apache-2.0
-version: 0.3.0
+version: 0.3.1
 keywords:
   - ai-safety
   - red-teaming
@@ -17,6 +17,7 @@ keywords:
   - prompt-injection
   - adversarial-evaluation
 abstract: >-
-  Automated red-teaming tool that uses evolutionary optimization to discover
-  vulnerabilities in LLM systems across 19 attack categories. Produces scored,
-  evidence-backed reports with tamper-evident attestation chains.
+  Automated red-teaming tool with built-in attack packs for LLM systems.
+  Produces scored local results and can emit an experimental, request-bound,
+  signed claim with a bounded disclosure structure through the public Glacis
+  SDK offline path.

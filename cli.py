@@ -16,12 +16,31 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from autoredteam import __version__
+from autoredteam.receipts import (
+    ReceiptError,
+    build_receipt_artifacts,
+    generate_signing_key,
+    load_public_key,
+    load_signing_seed,
+    verify_receipt_files,
+)
+from autoredteam.requirements import (
+    RequirementError,
+    load_requirement,
+    parse_timestamp,
+    requirement_digest,
+    validate_autoredteam_requirement,
+)
 
-VERSION = "0.3.0"
+
+VERSION = __version__
 
 
 def _print_banner():
@@ -58,6 +77,14 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--resume", action="store_true", help="Resume interrupted campaign")
     run_p.add_argument("--dry-run", action="store_true", help="Use echo provider")
     run_p.add_argument("--quiet", action="store_true")
+    run_p.add_argument(
+        "--requirement",
+        help="AI Evidence Requirement v0.1 JSON file to bind to the run receipt",
+    )
+    run_p.add_argument(
+        "--signing-key",
+        help="Local Ed25519 seed file created by 'autoredteam keygen' (required with --requirement)",
+    )
     # Provider-specific
     run_p.add_argument("--endpoint", default="", help="API endpoint / base URL")
     run_p.add_argument("--deployment", default="", help="Azure deployment name")
@@ -130,6 +157,32 @@ def build_parser() -> argparse.ArgumentParser:
     pack_sub = pack_p.add_subparsers(dest="packs_action")
     pack_sub.add_parser("list", help="List all registered packs")
 
+    # --- keygen ---
+    key_p = sub.add_parser("keygen", help="Create a local receipt signing key")
+    key_p.add_argument("--output", required=True, help="Private signing key path (created mode 0600)")
+    key_p.add_argument(
+        "--public-key-output",
+        help="Optional path for the shareable Ed25519 public key",
+    )
+
+    # --- verify ---
+    verify_p = sub.add_parser(
+        "verify",
+        help="Check a request-bound self-signed receipt and redacted artifact",
+    )
+    verify_p.add_argument("receipt", help="Path to receipt.json")
+    verify_p.add_argument("--requirement", required=True, help="Original requirement.json")
+    verify_p.add_argument("--artifact", required=True, help="Shareable redacted_evidence.json")
+    verify_p.add_argument(
+        "--trusted-public-key",
+        help="Expected Ed25519 public-key hex or path; otherwise the receipt key is self-declared",
+    )
+    verify_p.add_argument(
+        "--at",
+        help="Verification time as UTC seconds (YYYY-MM-DDTHH:MM:SSZ); defaults to now",
+    )
+    verify_p.add_argument("--json", action="store_true", help="Print machine-readable verification result")
+
     return parser
 
 
@@ -139,6 +192,22 @@ def build_parser() -> argparse.ArgumentParser:
 
 def cmd_run(args: argparse.Namespace) -> int:
     """Execute a red-team campaign."""
+    request = None
+    signing_seed = None
+    if getattr(args, "requirement", None):
+        if not getattr(args, "signing_key", None):
+            raise ReceiptError("--signing-key is required with --requirement; no unsigned fallback was used")
+        request = load_requirement(args.requirement)
+        validate_autoredteam_requirement(request)
+        expires_at = parse_timestamp(request["return"]["expires_at"], "$.return.expires_at")
+        if datetime.now(timezone.utc) >= expires_at:
+            raise RequirementError("the requirement has expired; the campaign was not started")
+        signing_seed = load_signing_seed(args.signing_key)
+    elif getattr(args, "signing_key", None):
+        raise ReceiptError(
+            "--signing-key requires --requirement; no signed receipt was created"
+        )
+
     _print_banner()
 
     from campaign import TargetRef, generate_campaign_id
@@ -164,9 +233,35 @@ def cmd_run(args: argparse.Namespace) -> int:
         stealth_profile=args.stealth_profile,
     )
 
+    shareable_output_dir = Path(args.output_dir)
+    campaign_output_dir = shareable_output_dir
+    if request is not None:
+        if shareable_output_dir.is_symlink():
+            raise ReceiptError("request-mode output root must not be a symlink")
+        allowed_root_entries = {"private"}
+        if shareable_output_dir.exists():
+            unexpected = sorted(
+                child.name
+                for child in shareable_output_dir.iterdir()
+                if child.name not in allowed_root_entries
+            )
+            if unexpected:
+                raise ReceiptError(
+                    "request-mode output root contains non-shareable or unknown entries: "
+                    + ", ".join(unexpected)
+                    + "; choose a clean output directory"
+                )
+        private_dir = shareable_output_dir / "private"
+        campaign_output_dir = private_dir / "run"
+        if private_dir.is_symlink() or campaign_output_dir.is_symlink():
+            raise ReceiptError("request-mode private output path must not be a symlink")
+        campaign_output_dir.mkdir(parents=True, exist_ok=True)
+        os.chmod(private_dir, 0o700)
+        os.chmod(campaign_output_dir, 0o700)
+
     campaign = build_campaign_from_packs(
         pack_ids=args.pack, context=context, target=target,
-        mode="run", output_dir=args.output_dir,
+        mode="run", output_dir=str(campaign_output_dir),
     )
 
     if not args.quiet:
@@ -177,6 +272,18 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"  Stealth:   {args.stealth_profile}")
         print(f"  Judge:     {args.judge_backend}")
         print(f"  Output:    {args.output_dir}/")
+        if request:
+            print(f"  Request:   {request['request_id']}")
+            print(f"  Digest:    {requirement_digest(request)}")
+            unsupported_assurance = [
+                predicate for predicate in request["minimum_assurance_predicates"]
+                if predicate != "issuer-signed"
+            ]
+            if unsupported_assurance:
+                print(
+                    "  Assurance: incomplete — this self-signed adapter does not provide "
+                    + ", ".join(unsupported_assurance)
+                )
         print()
 
     stealth = StealthEngine(seed=args.seed) if args.stealth_profile != "none" else None
@@ -184,28 +291,45 @@ def cmd_run(args: argparse.Namespace) -> int:
     runner = CampaignRunner(
         score_engine=ScoreEngineV2(config=score_config),
         stealth_engine=stealth,
-        config=CampaignRunConfig(output_dir=args.output_dir, resume=args.resume),
+        config=CampaignRunConfig(
+            output_dir=str(campaign_output_dir),
+            resume=args.resume,
+            private_artifacts=request is not None,
+        ),
     )
 
     result = runner.run_campaign(campaign)
 
     artifacts = None
-    try:
-        from reporting.generator import ReportGenerator
-        reporter = ReportGenerator()
-        artifacts = reporter.generate(result, args.output_dir)
-    except Exception:
-        artifacts = None
+    receipt_artifacts = None
+    if request is not None and signing_seed is not None:
+        # The public request-bound path intentionally does not import the
+        # excluded attestation/reporting stack. It writes its private detail,
+        # structurally bounded evidence, and SDK-offline signature itself.
+        receipt_artifacts = build_receipt_artifacts(
+            result,
+            request,
+            signing_seed,
+            args.output_dir,
+        )
+    else:
+        try:
+            from reporting.generator import ReportGenerator
+            reporter = ReportGenerator()
+            artifacts = reporter.generate(result, args.output_dir)
+        except Exception:
+            artifacts = None
 
     # Print summary
     if result.summary:
         s = result.summary
         governance = None
-        try:
-            from reporting.governance import compute_governance_score
-            governance = compute_governance_score(result.results)
-        except Exception:
-            pass
+        if request is None:
+            try:
+                from reporting.governance import compute_governance_score
+                governance = compute_governance_score(result.results)
+            except Exception:
+                pass
 
         print(f"\n{'='*60}")
         print(f"  RESULTS")
@@ -223,12 +347,25 @@ def cmd_run(args: argparse.Namespace) -> int:
             print(f"  📄 Report:     {artifacts.report_md}")
             print(f"  📊 Findings:   {artifacts.findings_jsonl}")
             print(f"  📋 Summary:    {artifacts.summary_txt}")
+        elif receipt_artifacts:
+            print(f"  🔒 Private:    {receipt_artifacts.private_findings}")
+            print(f"  📋 Shareable:  {receipt_artifacts.redacted_evidence}")
+            print(f"  🧾 Receipt:    {receipt_artifacts.receipt}")
+            print(f"  Fulfillment:   {receipt_artifacts.verification['status']}")
+            print(
+                "  Signature:     key signed this claim; execution and time were not "
+                "independently proven"
+            )
         else:
             print(f"  📦 Campaign:   {args.output_dir}/campaign_result.json")
             print(f"  🧾 Results:    {args.output_dir}/probe_results.jsonl")
         print()
 
-    return 0 if result.summary and result.summary.errors == 0 else 1
+    if not result.summary or result.summary.errors != 0:
+        return 1
+    if receipt_artifacts and not receipt_artifacts.verification["valid"]:
+        return 3
+    return 0
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -330,6 +467,45 @@ def cmd_packs_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_keygen(args: argparse.Namespace) -> int:
+    public_key = generate_signing_key(args.output, args.public_key_output)
+    print(f"Private signing key created: {args.output}")
+    if args.public_key_output:
+        print(f"Public key written: {args.public_key_output}")
+    print(f"Ed25519 public key: {public_key}")
+    print("Keep the private seed local. A receipt verifier needs only the public key.")
+    return 0
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    verification_time = None
+    if args.at:
+        verification_time = parse_timestamp(args.at, "--at")
+    trusted_key = load_public_key(args.trusted_public_key) if args.trusted_public_key else None
+    result = verify_receipt_files(
+        args.receipt,
+        args.requirement,
+        args.artifact,
+        trusted_public_key=trusted_key,
+        now=verification_time,
+    )
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        print(f"Fulfillment: {result['status']}")
+        print(
+            "Signature: "
+            + ("PASS" if result["checks"]["signature_valid_under_displayed_key"] else "FAIL")
+        )
+        print(f"Signer key: {result['signer_public_key'] or 'unavailable'}")
+        print(f"Key trust: {result['key_trust']}")
+        print(result["signature_explanation"])
+        failed = [name for name, passed in result["checks"].items() if not passed]
+        if failed:
+            print("Failed checks: " + ", ".join(failed))
+    return 0 if result["valid"] else 1
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -349,6 +525,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         "report": cmd_report,
         "pr": cmd_pr,
         "emit-policy": cmd_emit_policy,
+        "keygen": cmd_keygen,
+        "verify": cmd_verify,
         "providers": lambda a: cmd_providers_list(a) if getattr(a, "providers_action", None) == "list" else (print("Use: autoredteam providers list"), 0)[1],
         "packs": lambda a: cmd_packs_list(a) if getattr(a, "packs_action", None) == "list" else (print("Use: autoredteam packs list"), 0)[1],
     }
@@ -360,6 +538,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         except KeyboardInterrupt:
             print("\n⚠ Interrupted")
             return 130
+        except (RequirementError, ReceiptError) as e:
+            print(f"\n❌ Error: {e}")
+            return 2
         except Exception as e:
             print(f"\n❌ Error: {e}")
             import traceback

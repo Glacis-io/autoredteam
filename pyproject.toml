@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "glacis-autoredteam"
-version = "0.3.0"
-description = "Closed-loop adversarial red-teaming and hardening for AI systems"
+version = "0.3.1"
+description = "Automated adversarial red-teaming and request-bound signed run claims for AI systems"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.9"
@@ -27,7 +27,11 @@ classifiers = [
 ]
 dependencies = [
     "pyyaml>=6.0,<7.0",
+    "glacis>=0.8.1,<0.9",
 ]
+
+[project.scripts]
+autoredteam = "cli:main"
 
 [project.optional-dependencies]
 openai = ["openai>=1.0,<3.0"]
@@ -50,9 +54,9 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/glacis-io/auto-redteam"
-Documentation = "https://github.com/glacis-io/auto-redteam"
-Repository = "https://github.com/glacis-io/auto-redteam"
+Homepage = "https://github.com/Glacis-io/autoredteam"
+Documentation = "https://github.com/Glacis-io/autoredteam"
+Repository = "https://github.com/Glacis-io/autoredteam"
 
 [tool.setuptools]
 py-modules = [

@@ -9,6 +9,7 @@ flows through CampaignRunner.
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -40,6 +41,7 @@ class CampaignRunConfig:
     attest_each_probe: bool = True
     write_jsonl_incrementally: bool = True
     stop_on_auth_error: bool = True
+    private_artifacts: bool = False
 
 
 class CampaignRunner:
@@ -73,11 +75,12 @@ class CampaignRunner:
 
         output_dir = Path(campaign.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
+        if self.config.private_artifacts:
+            os.chmod(output_dir, 0o700)
 
         # Write campaign manifest
         manifest_path = output_dir / "campaign_manifest.json"
-        with open(manifest_path, "w") as f:
-            json.dump(campaign.to_dict(), f, indent=2)
+        self._write_json(manifest_path, campaign.to_dict())
 
         # Load resume state if requested
         completed_ids: set[str] = set()
@@ -348,8 +351,31 @@ class CampaignRunner:
 
     def _write_incremental(self, path: Path, result: ProbeResult) -> None:
         """Append one result to JSONL."""
-        with open(path, "a") as f:
+        if self.config.private_artifacts:
+            flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            descriptor = os.open(str(path), flags, 0o600)
+            os.fchmod(descriptor, 0o600)
+            handle = os.fdopen(descriptor, "a", encoding="utf-8")
+        else:
+            handle = open(path, "a")
+        with handle as f:
             f.write(json.dumps(result.to_dict()) + "\n")
+
+    def _write_json(self, path: Path, value: Any) -> None:
+        """Write JSON, using private mode from creation when requested."""
+        if self.config.private_artifacts:
+            flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+            if hasattr(os, "O_NOFOLLOW"):
+                flags |= os.O_NOFOLLOW
+            descriptor = os.open(str(path), flags, 0o600)
+            os.fchmod(descriptor, 0o600)
+            handle = os.fdopen(descriptor, "w", encoding="utf-8")
+        else:
+            handle = open(path, "w")
+        with handle as f:
+            json.dump(value, f, indent=2)
 
     def _write_state(self, output_dir: Path, result: CampaignResult) -> None:
         """Write resume state."""
@@ -357,8 +383,7 @@ class CampaignRunner:
             "completed_probe_ids": [r.probe.probe_id for r in result.results],
             "timestamp": _utc_now(),
         }
-        with open(output_dir / "campaign_state.json", "w") as f:
-            json.dump(state, f, indent=2)
+        self._write_json(output_dir / "campaign_state.json", state)
 
     def _load_resume_state(self, campaign: Campaign) -> set[str]:
         """Load completed probe IDs from prior run."""
@@ -371,8 +396,7 @@ class CampaignRunner:
 
     def _write_final(self, output_dir: Path, result: CampaignResult) -> None:
         """Write final campaign result and state."""
-        with open(output_dir / "campaign_result.json", "w") as f:
-            json.dump(result.to_dict(), f, indent=2)
+        self._write_json(output_dir / "campaign_result.json", result.to_dict())
         self._write_state(output_dir, result)
 
 

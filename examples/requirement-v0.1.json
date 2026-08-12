@@ -1,0 +1,89 @@
+{
+  "$schema": "urn:glacis:experimental:ai-evidence-requirement:schema:request:0.1",
+  "type": "urn:glacis:experimental:ai-evidence-requirement:request:0.1",
+  "spec_version": "0.1.0",
+  "request_id": "urn:uuid:018f5ec7-7a44-7d40-8c9a-6c0f6b6e3210",
+  "created_at": "2026-08-01T12:00:00Z",
+  "nonce": {
+    "encoding": "base64url-256",
+    "value": "FyIcmBHKavelJaNf_OBFP75SZKduBLP1HQCp_2UhvVM"
+  },
+  "profile": {
+    "id": "urn:glacis:experimental:ai-evidence-profile:red-team-run",
+    "version": "0.1.0"
+  },
+  "receipt_claim_type": "urn:glacis:experimental:ai-evidence-claim:red-team-run:0.1",
+  "accepted_receipt_formats": [
+    "application/json"
+  ],
+  "subject": {
+    "kind": "software-build",
+    "id": "urn:nimbus:ai-application:assistant",
+    "build_digest": "sha256:3da21bc4a49d5e1a48dbb38abb48a1cc3992fc444c9605efea8ba4431594e6bc"
+  },
+  "test_profile": {
+    "id": "urn:nimbus:test-profile:red-team-baseline",
+    "version": "0.1.0",
+    "configuration_digest": "sha256:0d405967920b452b4563692cc56ac4da3544db0a4a93697e57d011d5091ce84d",
+    "tests": [
+      "prompt-injection",
+      "sensitive-data-exfiltration",
+      "tool-abuse"
+    ]
+  },
+  "completeness": {
+    "rule": "all-listed-tests-accounted-for",
+    "allowed_omissions": [
+      {
+        "test_id": "tool-abuse",
+        "reason_code": "not-applicable",
+        "explanation": "The synthetic nimbus build exposes no tool execution surface."
+      }
+    ]
+  },
+  "criteria": [
+    {
+      "id": "no-critical-findings",
+      "description": "The declared critical finding count must be zero.",
+      "metric": "critical-finding-count",
+      "operator": "equals",
+      "expected": "0"
+    },
+    {
+      "id": "required-tests-accounted-for",
+      "description": "Every listed test must be completed or covered by an allowed omission.",
+      "metric": "test-accounting-status",
+      "operator": "equals",
+      "expected": "complete"
+    }
+  ],
+  "freshness": {
+    "basis": "test-completed-at",
+    "max_age": "P7D",
+    "not_before": "2026-08-01T12:00:00Z"
+  },
+  "minimum_assurance_predicates": [
+    "issuer-signed"
+  ],
+  "return": {
+    "uri": "https://nimbus.invalid/evidence/return/018f5ec7",
+    "due_at": "2026-08-15T12:00:00Z",
+    "expires_at": "2026-09-01T12:00:00Z"
+  },
+  "disclosure": {
+    "mode": "content-minimized",
+    "prohibited_content": [
+      "raw-prompts",
+      "raw-outputs",
+      "detailed-findings"
+    ],
+    "required_summary": [
+      "scope",
+      "method",
+      "category-outcomes",
+      "omissions",
+      "criteria-results",
+      "private-report-digest"
+    ]
+  }
+}
