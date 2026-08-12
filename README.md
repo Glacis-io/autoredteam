@@ -139,7 +139,7 @@ Generate attacks (from taxonomy + mutations)
        ↓
 Execute against target
        ↓
-Score results (deterministic + LLM judge)
+Score results (deterministic by default; optional local SLM)
        ↓
 Record evidence, write report
 ```
@@ -161,11 +161,11 @@ Every attack is scored on four dimensions to prevent single-metric collapse:
 | **Novelty** | How different from prior attacks |
 | **Reliability** | Does the attack reproduce consistently |
 
-Deterministic checks run first (keyword matching, regex for PII / system prompt patterns). Ambiguous cases escalate to an LLM-as-judge with dual-judge consensus.
+The public CLI uses deterministic checks by default, including keyword matching and regex for PII or system-prompt patterns. `--judge-backend slm` can attempt the repository's optional local judge model; if that model is unavailable, the result records the limitation instead of silently calling a hosted judge. The public CLI does not expose API or dual-judge scoring.
 
 ### Mutation Engine
 
-Seven mutation strategies evolve attacks: rephrase, encode, nest, persona shift, language switch, format change, authority escalation. A diversity injection mechanism fires every N cycles to prevent premature convergence.
+Attack-pack utilities include rephrase, encode, nest, persona-shift, language-switch, format-change, and authority-escalation mutations. The bounded public `run` command does not claim a repeated evolutionary or convergence cycle.
 
 ## Multi-Cloud Support
 
@@ -206,7 +206,7 @@ autoredteam run --dry-run                                     # Echo target, no 
 autoredteam run --provider openai --model gpt-4o-mini         # Full run
 autoredteam run --pack generic_taxonomy healthcare            # Multiple attack packs
 autoredteam run --stealth-profile medium                      # Stealth mode
-autoredteam run --judge-backend api                           # LLM-as-judge scoring
+autoredteam run --judge-backend slm                           # Optional local judge model
 autoredteam run --requirement requirement.json \
   --signing-key issuer.key                                    # Request-bound receipt
 
@@ -287,13 +287,13 @@ campaign:
   stealth_profile: none     # none, light, medium, aggressive
 
 scoring:
-  judge_backend: deterministic  # deterministic, api, slm
+  judge_backend: deterministic  # public CLI: deterministic or slm
   weights: { breadth: 0.25, depth: 0.25, novelty: 0.25, reliability: 0.25 }
 ```
 
 ## Roadmap
 
-- [x] v0.1 — Single-turn text attacks and deterministic + LLM scoring
+- [x] v0.1 — Single-turn text attacks, deterministic scoring, and an optional local SLM path
 - [x] v0.2 — Multi-turn attack chains, agentic target support
 - [x] v0.3 — Hardening research components, OVERT-oriented policy output, multi-cloud providers; public `harden` CLI unavailable
 - [ ] v0.4 — Image/multimodal attack vectors, recursive policy hardening

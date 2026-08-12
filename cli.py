@@ -73,7 +73,12 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--max-trajectory-turns", type=int, default=5, help="Max turns per trajectory")
     run_p.add_argument("--stealth-profile", default="none", choices=["none", "light", "medium", "aggressive"])
     run_p.add_argument("--intensity", default="medium", choices=["low", "medium", "high"])
-    run_p.add_argument("--judge-backend", default="deterministic", choices=["deterministic", "api", "slm"])
+    run_p.add_argument(
+        "--judge-backend",
+        default="deterministic",
+        choices=["deterministic", "slm"],
+        help="Scoring backend; the public CLI supports deterministic scoring and an optional local SLM",
+    )
     run_p.add_argument("--seed", type=int, default=42)
     run_p.add_argument("--resume", action="store_true", help="Resume interrupted campaign")
     run_p.add_argument("--dry-run", action="store_true", help="Use echo provider")

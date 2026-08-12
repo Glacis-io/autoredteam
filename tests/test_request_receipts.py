@@ -549,6 +549,22 @@ class TestSignedRequestReceipt(unittest.TestCase):
 
 
 class TestRequestModeCliPrivacy(unittest.TestCase):
+    def test_public_cli_exposes_only_runnable_judge_backends(self) -> None:
+        parser = cli.build_parser()
+        self.assertEqual(
+            parser.parse_args(["run", "--judge-backend", "deterministic"]).judge_backend,
+            "deterministic",
+        )
+        self.assertEqual(
+            parser.parse_args(["run", "--judge-backend", "slm"]).judge_backend,
+            "slm",
+        )
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr), self.assertRaises(SystemExit) as raised:
+            parser.parse_args(["run", "--judge-backend", "api"])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("invalid choice", stderr.getvalue())
+
     @unittest.skipUnless(hasattr(Path, "symlink_to"), "symlinks unavailable")
     def test_request_mode_output_root_symlink_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
