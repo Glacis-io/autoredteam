@@ -2,6 +2,7 @@
 
 # Core (always needed)
 pyyaml>=6.0,<7.0
+glacis>=0.8.1,<0.9
 
 # Target providers — install what you need
 openai>=1.0,<3.0       # OpenAI, Azure OpenAI, OpenAI-compatible endpoints
