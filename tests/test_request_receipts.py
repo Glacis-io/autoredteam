@@ -314,6 +314,29 @@ class TestSignedRequestReceipt(unittest.TestCase):
         self.assertNotIn("artifact_error", public_result)
         self.assertNotIn(signer_public_key, stdout.getvalue())
         self.assertRegex(public_result["signer_key_fingerprint"], r"^sha256:[0-9a-f]{64}$")
+        self.assertTrue(public_result["checks"]["trusted_public_key_match"])
+
+        wrong_key_stdout = io.StringIO()
+        with contextlib.redirect_stdout(wrong_key_stdout):
+            wrong_key_exit = cli.main(
+                [
+                    "verify",
+                    str(receipt_path),
+                    "--requirement",
+                    str(FIXTURE),
+                    "--artifact",
+                    str(self.artifacts.redacted_evidence),
+                    "--trusted-public-key",
+                    "0" * 64,
+                    "--json",
+                ]
+            )
+        wrong_key_result = json.loads(wrong_key_stdout.getvalue())
+        self.assertEqual(wrong_key_exit, 1)
+        self.assertEqual(wrong_key_result["status"], "wrong-key")
+        self.assertFalse(wrong_key_result["checks"]["trusted_public_key_match"])
+        self.assertNotIn("signature_error", wrong_key_result)
+        self.assertNotIn("artifact_error", wrong_key_result)
 
     def test_requirement_digest_and_nonce_mismatch(self) -> None:
         different = copy.deepcopy(self.requirement)

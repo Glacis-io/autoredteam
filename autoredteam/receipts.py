@@ -1315,12 +1315,12 @@ def verify_receipt(
     except Exception as exc:
         signature_error = f"SDK attestation could not be verified: {exc}"
 
-    trusted_key_match = True
+    expected_public_key_match = True
     trust = "self-declared-key"
     if trusted_public_key is not None:
         expected_key = load_public_key(trusted_public_key)
-        trusted_key_match = signer_public_key == expected_key
-        trust = "expected-key" if trusted_key_match else "wrong-key"
+        expected_public_key_match = signer_public_key == expected_key
+        trust = "expected-key" if expected_public_key_match else "wrong-key"
 
     artifact_digest_match = False
     artifact_prohibited_field_names_absent = False
@@ -1390,7 +1390,7 @@ def verify_receipt(
         "sdk_version_supported": sdk_version_supported,
         "signed_sdk_version_copy_match": sdk_version_copy_match,
         "signature_valid_under_displayed_key": signature_valid,
-        "trusted_public_key_match": trusted_key_match,
+        "trusted_public_key_match": expected_public_key_match,
         "sdk_signed_binding_match": sdk_binding_match,
         "sdk_evidence_hash_match": sdk_evidence_hash_match,
         "sdk_attestation_context_match": sdk_attestation_context_match,
@@ -1448,7 +1448,7 @@ def verify_receipt(
         or not artifact_prohibited_field_names_absent
     ):
         status = "artifact-missing-or-mismatch"
-    elif not trusted_key_match:
+    elif not expected_public_key_match:
         status = "wrong-key"
     else:
         status = "requirement-fulfilled"
