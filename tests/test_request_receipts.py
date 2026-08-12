@@ -289,6 +289,8 @@ class TestSignedRequestReceipt(unittest.TestCase):
                     str(self.artifacts.redacted_evidence),
                     "--trusted-public-key",
                     signer_public_key,
+                    "--at",
+                    "2026-08-12T12:00:00Z",
                     "--json",
                 ]
             )
@@ -313,6 +315,7 @@ class TestSignedRequestReceipt(unittest.TestCase):
         self.assertNotIn("signature_error", public_result)
         self.assertNotIn("artifact_error", public_result)
         self.assertNotIn(signer_public_key, stdout.getvalue())
+        self.assertNotIn(RAW_SENTINEL, stdout.getvalue())
         self.assertRegex(public_result["signer_key_fingerprint"], r"^sha256:[0-9a-f]{64}$")
         self.assertTrue(public_result["checks"]["trusted_public_key_match"])
 
@@ -328,6 +331,8 @@ class TestSignedRequestReceipt(unittest.TestCase):
                     str(self.artifacts.redacted_evidence),
                     "--trusted-public-key",
                     "0" * 64,
+                    "--at",
+                    "2026-08-12T12:00:00Z",
                     "--json",
                 ]
             )
@@ -337,6 +342,15 @@ class TestSignedRequestReceipt(unittest.TestCase):
         self.assertFalse(wrong_key_result["checks"]["trusted_public_key_match"])
         self.assertNotIn("signature_error", wrong_key_result)
         self.assertNotIn("artifact_error", wrong_key_result)
+        self.assertNotIn(RAW_SENTINEL, wrong_key_stdout.getvalue())
+
+        library_result = self._verify()
+        library_result["signature_error"] = RAW_SENTINEL
+        library_result["artifact_error"] = RAW_SENTINEL
+        self.assertNotIn(
+            RAW_SENTINEL,
+            json.dumps(cli._verification_output(library_result)),
+        )
 
     def test_requirement_digest_and_nonce_mismatch(self) -> None:
         different = copy.deepcopy(self.requirement)
