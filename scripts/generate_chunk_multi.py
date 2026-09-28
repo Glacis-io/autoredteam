@@ -6,10 +6,9 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT))
 
-from attack import AttackGenerator
-from scoring import deterministic_score
+from autoredteam.attack import AttackGenerator
+from autoredteam.scoring import deterministic_score
 
 SCENARIOS = {
     "biomedical": {
