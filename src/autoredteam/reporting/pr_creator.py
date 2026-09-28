@@ -36,7 +36,7 @@ class PRCreator:
         # Read PR body from generated artifact
         pr_body = ""
         if report_artifacts.pr_body_md and Path(report_artifacts.pr_body_md).exists():
-            pr_body = Path(report_artifacts.pr_body_md).read_text()
+            pr_body = Path(report_artifacts.pr_body_md).read_text(encoding="utf-8")
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         head_branch = targets.head_branch or f"autoredteam/assessment-{timestamp}"
@@ -62,11 +62,11 @@ class PRCreator:
         out.mkdir(parents=True, exist_ok=True)
 
         bundle_path = out / "PR_BUNDLE.json"
-        with open(bundle_path, "w") as f:
+        with open(bundle_path, "w", encoding="utf-8") as f:
             json.dump(bundle, f, indent=2)
 
         body_path = out / "PR_BODY.md"
-        with open(body_path, "w") as f:
+        with open(body_path, "w", encoding="utf-8") as f:
             f.write(bundle.get("body", ""))
 
         return {

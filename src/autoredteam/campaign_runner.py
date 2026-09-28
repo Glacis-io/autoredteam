@@ -10,23 +10,21 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
 from autoredteam.campaign import (
-    Campaign, CampaignResult, CampaignSummary,
-    ChatProbe, ControlPlaneProbe, Probe, ProbeResult, ProbeStatus,
+    Campaign, CampaignResult, ChatProbe, ControlPlaneProbe, Probe, ProbeResult, ProbeStatus,
     ProbeSurface, ProbeTrace, TargetRef, TrajectoryProbe,
-    generate_campaign_id,
 )
 from autoredteam.conversation import ConversationTurn, _utc_now
 from autoredteam.providers.base import (
     BaseTargetSession, ProviderRateLimitError, ProviderRequestError,
 )
 from autoredteam.providers.registry import ProviderRegistry, get_provider_registry
-from autoredteam.scoring_v2 import ProbeScore, ScoreEngineV2, ScoreConfigV2
-from autoredteam.trajectory_engine import TrajectoryEngine, TrajectoryEngineConfig
+from autoredteam.scoring_v2 import ScoreEngineV2
+from autoredteam.trajectory_engine import TrajectoryEngine
 
 
 @dataclass
@@ -76,7 +74,7 @@ class CampaignRunner:
 
         # Write campaign manifest
         manifest_path = output_dir / "campaign_manifest.json"
-        with open(manifest_path, "w") as f:
+        with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(campaign.to_dict(), f, indent=2)
 
         # Load resume state if requested
@@ -306,7 +304,6 @@ class CampaignRunner:
         self, session: BaseTargetSession, content: str, turn_index: int,
     ) -> Any:
         """Send with retry on rate limits."""
-        from autoredteam.providers.base import ProviderResponse as PR
         last_error = None
         for attempt in range(self.config.max_retries + 1):
             try:
@@ -348,7 +345,7 @@ class CampaignRunner:
 
     def _write_incremental(self, path: Path, result: ProbeResult) -> None:
         """Append one result to JSONL."""
-        with open(path, "a") as f:
+        with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(result.to_dict()) + "\n")
 
     def _write_state(self, output_dir: Path, result: CampaignResult) -> None:
@@ -357,21 +354,21 @@ class CampaignRunner:
             "completed_probe_ids": [r.probe.probe_id for r in result.results],
             "timestamp": _utc_now(),
         }
-        with open(output_dir / "campaign_state.json", "w") as f:
+        with open(output_dir / "campaign_state.json", "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2)
 
     def _load_resume_state(self, campaign: Campaign) -> set[str]:
         """Load completed probe IDs from prior run."""
         state_path = Path(campaign.output_dir) / "campaign_state.json"
         if state_path.exists():
-            with open(state_path) as f:
+            with open(state_path, encoding="utf-8") as f:
                 state = json.load(f)
             return set(state.get("completed_probe_ids", []))
         return set()
 
     def _write_final(self, output_dir: Path, result: CampaignResult) -> None:
         """Write final campaign result and state."""
-        with open(output_dir / "campaign_result.json", "w") as f:
+        with open(output_dir / "campaign_result.json", "w", encoding="utf-8") as f:
             json.dump(result.to_dict(), f, indent=2)
         self._write_state(output_dir, result)
 

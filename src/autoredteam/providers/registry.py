@@ -1,6 +1,6 @@
 """providers/registry.py — Provider registration and session creation."""
 from __future__ import annotations
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 from autoredteam.providers.base import BaseTargetSession, ProviderConfigurationError, ProviderDescriptor, TargetSpec
 from autoredteam.providers.catalog import resolve_model_id
 

@@ -6,9 +6,8 @@ Wraps the existing attack.py taxonomy and mutation engine as a first-class pack.
 
 from __future__ import annotations
 
-from typing import Optional
 
-from autoredteam.attack import AttackGenerator, Attack, ATTACK_CATEGORIES
+from autoredteam.attack import AttackGenerator, ATTACK_CATEGORIES
 from autoredteam.attack_packs.base import AttackPack, AttackPackMetadata, PackBuildContext
 from autoredteam.campaign import ChatProbe, Probe, ProbeSurface, generate_probe_id
 

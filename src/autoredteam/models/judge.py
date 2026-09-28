@@ -144,7 +144,7 @@ class JudgeSLM:
             is_peft_dir = adapter_config_path.exists() and peft is not None
 
             if is_peft_dir:
-                with open(adapter_config_path) as f:
+                with open(adapter_config_path, encoding="utf-8") as f:
                     adapter_cfg = json.loads(f.read())
                 base_model_name = adapter_cfg.get("base_model_name_or_path", "")
                 if not base_model_name:

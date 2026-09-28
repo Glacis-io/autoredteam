@@ -424,7 +424,7 @@ def load_scoring_config(config_path: str = "config.yaml") -> dict:
     path = Path(config_path)
     if not path.exists():
         return defaults
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     scoring = cfg.get("scoring", {})
     defaults.update(scoring)

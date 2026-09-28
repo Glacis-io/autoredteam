@@ -116,7 +116,7 @@ class LocalEvidenceStore:
         ).hexdigest()
         team_data["chain_hash"] = chain_hash
 
-        with open(self.evidence_file, "a") as f:
+        with open(self.evidence_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(team_data) + "\n")
 
         # Keep the tip in memory so the next record can link without a file read.
@@ -129,7 +129,7 @@ class LocalEvidenceStore:
             "response": evidence._raw_response,
             "chain_hash": chain_hash,
         }
-        with open(self.raw_file, "a") as f:
+        with open(self.raw_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(raw_data) + "\n")
 
         return chain_hash
@@ -139,7 +139,7 @@ class LocalEvidenceStore:
         if not self.evidence_file.exists():
             return "genesis"
         try:
-            with open(self.evidence_file) as f:
+            with open(self.evidence_file, encoding="utf-8") as f:
                 lines = f.readlines()
             if lines:
                 last = json.loads(lines[-1])
@@ -161,7 +161,7 @@ class LocalEvidenceStore:
 
     def write_summary(self, summary: dict) -> None:
         """Write the public-tier summary."""
-        with open(self.summary_file, "w") as f:
+        with open(self.summary_file, "w", encoding="utf-8") as f:
             json.dump(summary, f, indent=2)
 
     def git_commit(self, message: str) -> bool:
@@ -184,7 +184,7 @@ class LocalEvidenceStore:
         if not self.evidence_file.exists():
             return []
         records = []
-        with open(self.evidence_file) as f:
+        with open(self.evidence_file, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -403,7 +403,7 @@ class AttestationManager:
         receipt = self.build_receipt(metadata=metadata)
         receipt_path = Path(path) if path else self.local.output_dir / "attestation_receipt.json"
         receipt_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(receipt_path, "w") as f:
+        with open(receipt_path, "w", encoding="utf-8") as f:
             json.dump(receipt, f, indent=2)
         return str(receipt_path)
 
@@ -413,7 +413,7 @@ def load_attestation_config(config_path: str = "config.yaml") -> dict:
     path = Path(config_path)
     if not path.exists():
         return {}
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     return cfg.get("attestation", {})
 

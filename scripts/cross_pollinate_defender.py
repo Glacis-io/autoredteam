@@ -12,7 +12,6 @@ Derivation rules:
 """
 
 import json
-import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -61,7 +60,7 @@ def main():
     category_counts = Counter()
     errors = 0
 
-    with open(INPUT_PATH, "r", encoding="utf-8") as fin, \
+    with open(INPUT_PATH, encoding="utf-8") as fin, \
          open(OUTPUT_PATH, "w", encoding="utf-8") as fout:
         for line_no, line in enumerate(fin, start=1):
             line = line.strip()

@@ -48,7 +48,7 @@ def load_examples(path: str, limit: Optional[int] = None) -> list[dict[str, Any]
     input_path = Path(path)
     if not input_path.exists():
         return records
-    for line in input_path.read_text().splitlines():
+    for line in input_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
@@ -187,7 +187,7 @@ def main() -> int:
     manifest = build_training_manifest(config, examples)
     report_path = Path(config.report_path)
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(manifest, indent=2))
+    report_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(json.dumps(manifest, indent=2))
     return 0
 

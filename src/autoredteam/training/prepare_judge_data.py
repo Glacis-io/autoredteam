@@ -78,7 +78,7 @@ def summarize_examples(examples: Iterable[JudgeExample]) -> dict:
 
 def _load_json(path: Path) -> Optional[dict]:
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return None
@@ -87,7 +87,7 @@ def _load_json(path: Path) -> Optional[dict]:
 def _load_jsonl(path: Path) -> list[dict]:
     rows: list[dict] = []
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -258,7 +258,7 @@ def write_judge_jsonl(
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     count = 0
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         for example in examples:
             if example.severity < min_severity:
                 continue
@@ -288,7 +288,7 @@ def main() -> int:
     if args.stats_json:
         stats_path = Path(args.stats_json)
         stats_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(stats_path, "w") as f:
+        with open(stats_path, "w", encoding="utf-8") as f:
             json.dump(stats, f, indent=2)
 
     if args.stats:

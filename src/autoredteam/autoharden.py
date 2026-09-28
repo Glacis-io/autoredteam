@@ -49,18 +49,15 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from copy import deepcopy
 
 from autoredteam import __version__
-from autoredteam.prepare import EchoTarget, Target, OpenAITarget, AnthropicTarget, TARGET_REGISTRY
-from autoredteam.attack import AttackGenerator, Attack, list_categories
-from autoredteam.scoring import score_attack, ScoreVector, AttackResult
+from autoredteam.prepare import EchoTarget, Target, TARGET_REGISTRY
+from autoredteam.attack import AttackGenerator, list_categories
+from autoredteam.scoring import score_attack, AttackResult
 from autoredteam.attestation import AttestationManager
 from autoredteam.training_data import TrainingDataCollector
 from autoredteam.defend import (
-    diagnose, prescribe, apply_prescriptions, write_pr_artifacts,
-    heal, HealCycleResult, VulnerabilityCluster, DefensePrescription,
-    PROMPT_HARDENING_PATTERNS, GUARDRAIL_CONFIG_PATTERNS,
+    diagnose, prescribe,
 )
 
 
@@ -346,7 +343,7 @@ def autoharden(
   Role:            {role_name}
   Judge backend:   {judge_backend}
   Judge model:     {judge_model if judge_backend == 'api' else judge_model_path}
-  Immune loop:     {'ENABLED (interval={}, threshold={})'.format(immune_interval, immune_threshold) if immune_enabled else 'disabled'}
+  Immune loop:     {f'ENABLED (interval={immune_interval}, threshold={immune_threshold})' if immune_enabled else 'disabled'}
 """)
 
     cycle = 0
@@ -680,11 +677,11 @@ def _write_final_artifacts(
     (output_dir / "hardened_prompt.txt").write_text(hardened_prompt)
 
     # Guardrail config
-    with open(output_dir / "guardrail_config.json", "w") as f:
+    with open(output_dir / "guardrail_config.json", "w", encoding="utf-8") as f:
         json.dump(guardrail_configs, f, indent=2)
 
     # Block history
-    with open(output_dir / "block_history.json", "w") as f:
+    with open(output_dir / "block_history.json", "w", encoding="utf-8") as f:
         json.dump({
             "kept": [b.to_dict() for b in kept_blocks],
             "discarded": [b.to_dict() for b in discarded_blocks],
@@ -726,7 +723,7 @@ def _write_final_artifacts(
             "ready for deployment. The evidence chain proves every step."
         ),
     }
-    with open(output_dir / "autoharden_report.json", "w") as f:
+    with open(output_dir / "autoharden_report.json", "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
     # OVERT policy.toml — the closed-loop artifact

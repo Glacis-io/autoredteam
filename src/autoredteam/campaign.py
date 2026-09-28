@@ -8,8 +8,6 @@ all consume this shared vocabulary.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -234,7 +232,7 @@ class CampaignSummary:
         return asdict(self)
 
     @classmethod
-    def from_results(cls, results: list[ProbeResult]) -> "CampaignSummary":
+    def from_results(cls, results: list[ProbeResult]) -> CampaignSummary:
         summary = cls(total_probes=len(results))
         cat_stats: dict[str, dict[str, int]] = {}
         pack_stats: dict[str, dict[str, int]] = {}

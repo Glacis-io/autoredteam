@@ -7,7 +7,7 @@ producing ProbeTrace results with per-turn detection signals.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from autoredteam.conversation import ConversationTurn, DetectionResult, _utc_now

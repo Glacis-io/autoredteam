@@ -8,7 +8,6 @@ attacker trajectories written to training_data/attacker_examples_v2.jsonl.
 """
 
 import json
-import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -93,7 +92,7 @@ def main():
 
     # Read all judge examples
     examples = []
-    with open(INPUT_PATH, "r") as f:
+    with open(INPUT_PATH, encoding="utf-8") as f:
         for line_num, line in enumerate(f, 1):
             line = line.strip()
             if not line:
@@ -119,7 +118,7 @@ def main():
         strategy_counter[attacker_ex["strategy"]] += 1
 
     # Write output
-    with open(OUTPUT_PATH, "w") as f:
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         for item in converted:
             f.write(json.dumps(item, ensure_ascii=False) + "\n")
 

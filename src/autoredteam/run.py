@@ -48,7 +48,7 @@ def load_config(path: str) -> dict[str, Any]:
     config_path = Path(path)
     if not config_path.exists():
         return config
-    loaded = yaml.safe_load(config_path.read_text()) or {}
+    loaded = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     return _merge(config, loaded)
 
 

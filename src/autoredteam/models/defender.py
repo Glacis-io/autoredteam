@@ -15,7 +15,7 @@ import hashlib
 import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -186,7 +186,7 @@ class DefenderSLM:
         """Write detector state to disk."""
         out = Path(path)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(self.export_state(), indent=2))
+        out.write_text(json.dumps(self.export_state(), indent=2), encoding="utf-8")
         return out
 
     def snapshot(self, trajectory_id: str) -> DefenderSnapshot:

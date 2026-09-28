@@ -53,7 +53,7 @@ class DetectionResult:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "DetectionResult":
+    def from_dict(cls, data: dict) -> DetectionResult:
         return cls(
             turn_index=int(data.get("turn_index", 0)),
             is_attack=bool(data.get("is_attack", False)),
@@ -107,7 +107,7 @@ class ConversationTurn:
         return d
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ConversationTurn":
+    def from_dict(cls, data: dict) -> ConversationTurn:
         detection = data.get("detection")
         metadata = data.get("metadata") or {}
         return cls(
@@ -161,7 +161,7 @@ class AttackTrajectory:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "AttackTrajectory":
+    def from_dict(cls, data: dict) -> AttackTrajectory:
         turns = [
             ConversationTurn.from_dict(turn)
             for turn in data.get("turns", [])
@@ -208,7 +208,7 @@ class TrainingExample:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "TrainingExample":
+    def from_dict(cls, data: dict) -> TrainingExample:
         trajectory_data = data.get("trajectory", {})
         if isinstance(trajectory_data, dict):
             trajectory = AttackTrajectory.from_dict(trajectory_data)

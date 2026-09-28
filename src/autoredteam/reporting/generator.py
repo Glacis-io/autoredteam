@@ -7,13 +7,13 @@ Produces markdown reports, JSON summaries, and PR body content.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from autoredteam import __version__
-from autoredteam.reporting.governance import GovernanceScore, compute_governance_score
+from autoredteam.reporting.governance import compute_governance_score
 
 
 @dataclass
@@ -40,14 +40,14 @@ class ReportGenerator:
 
         # Campaign result JSON
         result_path = out / "campaign_result.json"
-        with open(result_path, "w") as f:
+        with open(result_path, "w", encoding="utf-8") as f:
             json.dump(campaign_result.to_dict(), f, indent=2)
         artifacts.campaign_result_json = str(result_path)
 
         # Findings JSONL
         findings_path = out / "findings.jsonl"
         findings = self.render_findings_jsonl(campaign_result)
-        with open(findings_path, "w") as f:
+        with open(findings_path, "w", encoding="utf-8") as f:
             for finding in findings:
                 f.write(json.dumps(finding) + "\n")
         artifacts.findings_jsonl = str(findings_path)
@@ -55,20 +55,20 @@ class ReportGenerator:
         # Markdown report
         md_path = out / "report.md"
         md_content = self.render_markdown(campaign_result)
-        with open(md_path, "w") as f:
+        with open(md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
         artifacts.report_md = str(md_path)
 
         # Summary text
         summary_path = out / "SUMMARY.txt"
         summary = self._render_summary_text(campaign_result)
-        with open(summary_path, "w") as f:
+        with open(summary_path, "w", encoding="utf-8") as f:
             f.write(summary)
         artifacts.summary_txt = str(summary_path)
 
         # Report JSON
         report_json_path = out / "report.json"
-        with open(report_json_path, "w") as f:
+        with open(report_json_path, "w", encoding="utf-8") as f:
             json.dump({
                 "campaign": campaign_result.campaign.to_dict(),
                 "summary": campaign_result.summary.to_dict() if campaign_result.summary else {},
@@ -80,7 +80,7 @@ class ReportGenerator:
         # PR body
         pr_path = out / "PR_BODY.md"
         pr_body = self._render_pr_body(campaign_result)
-        with open(pr_path, "w") as f:
+        with open(pr_path, "w", encoding="utf-8") as f:
             f.write(pr_body)
         artifacts.pr_body_md = str(pr_path)
 

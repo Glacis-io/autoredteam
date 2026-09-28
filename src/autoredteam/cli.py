@@ -15,9 +15,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from pathlib import Path
 from typing import Optional
 
 from autoredteam import __version__
@@ -143,9 +141,9 @@ def cmd_run(args: argparse.Namespace) -> int:
     """Execute a red-team campaign."""
     _print_banner()
 
-    from autoredteam.campaign import TargetRef, generate_campaign_id
+    from autoredteam.campaign import TargetRef
     from autoredteam.attack_packs.base import PackBuildContext
-    from autoredteam.attack_packs.registry import build_campaign_from_packs, get_pack_registry
+    from autoredteam.attack_packs.registry import build_campaign_from_packs
     from autoredteam.campaign_runner import CampaignRunner, CampaignRunConfig
     from autoredteam.scoring_v2 import ScoreEngineV2, ScoreConfigV2
     from autoredteam.stealth import StealthEngine
@@ -336,7 +334,19 @@ def cmd_packs_list(args: argparse.Namespace) -> int:
 # Main
 # ---------------------------------------------------------------------------
 
+def _harden_console_encoding() -> None:
+    # Banners and status lines use box-drawing characters and emoji, which
+    # crash on legacy code pages (e.g. cp1252 on Windows CI runners).
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(errors="replace")
+            except (ValueError, OSError):
+                pass
+
+
 def main(argv: Optional[list[str]] = None) -> int:
+    _harden_console_encoding()
     parser = build_parser()
     args = parser.parse_args(argv)
 

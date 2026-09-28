@@ -169,7 +169,7 @@ class TestImmuneIntegration(unittest.TestCase):
                         f"Evidence chain should exist at {evidence_path}")
 
         evidence_records = []
-        with open(evidence_path) as f:
+        with open(evidence_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:

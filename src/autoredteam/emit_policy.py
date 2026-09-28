@@ -295,7 +295,7 @@ def load_autoharden_results(path: Path) -> dict:
       - evidence_chain.jsonl     (hash-chained attestation records)
     """
     if path.is_file() and path.suffix == ".json":
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             report = json.load(f)
         # Try to find sibling files
         directory = path.parent
@@ -303,7 +303,7 @@ def load_autoharden_results(path: Path) -> dict:
         directory = path
         report_path = directory / "autoharden_report.json"
         if report_path.exists():
-            with open(report_path) as f:
+            with open(report_path, encoding="utf-8") as f:
                 report = json.load(f)
         else:
             report = {}
@@ -315,13 +315,13 @@ def load_autoharden_results(path: Path) -> dict:
     # Guardrail config
     gc_path = directory / "guardrail_config.json"
     if gc_path.exists():
-        with open(gc_path) as f:
+        with open(gc_path, encoding="utf-8") as f:
             results["guardrail_config"] = json.load(f)
 
     # Block history
     bh_path = directory / "block_history.json"
     if bh_path.exists():
-        with open(bh_path) as f:
+        with open(bh_path, encoding="utf-8") as f:
             results["block_history"] = json.load(f)
 
     # Hardened prompt

@@ -23,7 +23,6 @@ The heal cycle:
 """
 
 import json
-import hashlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -728,7 +727,7 @@ def write_pr_artifacts(
 
     # Guardrail config
     config_path = out / "guardrail_config.json"
-    with open(config_path, "w") as f:
+    with open(config_path, "w", encoding="utf-8") as f:
         json.dump(heal_result.hardened_output["guardrail_config"], f, indent=2)
     paths["guardrail_config"] = str(config_path)
 
@@ -739,7 +738,7 @@ def write_pr_artifacts(
 
     # Full report
     report_path = out / "heal_report.json"
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(heal_result.to_dict(), f, indent=2)
     paths["heal_report"] = str(report_path)
 

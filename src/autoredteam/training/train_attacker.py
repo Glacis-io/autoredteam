@@ -41,7 +41,7 @@ def load_examples(path: str, limit: Optional[int] = None) -> list[dict[str, Any]
     input_path = Path(path)
     if not input_path.exists():
         return records
-    for line in input_path.read_text().splitlines():
+    for line in input_path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue

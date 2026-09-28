@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from autoredteam.conversation import AttackTrajectory, ConversationTurn, TrainingExample, build_transcript
+from autoredteam.conversation import AttackTrajectory, TrainingExample, build_transcript
 
 
 def _utc_now() -> str:
@@ -374,7 +374,7 @@ class TrainingDataCollector:
 
     def _write_jsonl(self, path: Path, records: list[dict]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             for record in records:
                 f.write(json.dumps(record, sort_keys=True) + "\n")
 

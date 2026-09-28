@@ -35,7 +35,6 @@ The benchmark proves both layers work.
 """
 
 import json
-import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -43,8 +42,8 @@ from pathlib import Path
 from typing import Optional
 
 from autoredteam.prepare import EchoTarget, Target
-from autoredteam.attack import AttackGenerator, Attack, ATTACK_CATEGORIES
-from autoredteam.scoring import score_attack, ScoreVector, AttackResult, deterministic_score
+from autoredteam.attack import AttackGenerator
+from autoredteam.scoring import score_attack, AttackResult
 from autoredteam.attestation import AttestationManager
 
 
@@ -324,7 +323,7 @@ def run_scenario(
     }
 
     report_path = results_dir / "scenario_report.json"
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 
     if verbose:
@@ -381,7 +380,7 @@ def run_all_scenarios(
 
     report_path = Path("validation/results/scenarios/suite_report.json")
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(suite_summary, f, indent=2)
 
     # Print summary table
@@ -412,7 +411,7 @@ def run_all_scenarios(
 
 def _create_target(target_type: str, model: str, system_prompt: str = "") -> Target:
     """Create a target from CLI args, using the scenario's system prompt."""
-    from autoredteam.prepare import OpenAITarget, AnthropicTarget, TARGET_REGISTRY
+    from autoredteam.prepare import TARGET_REGISTRY
     cls = TARGET_REGISTRY.get(target_type)
     if cls is None:
         raise ValueError(f"Unknown target type '{target_type}'. Available: {list(TARGET_REGISTRY.keys())}")

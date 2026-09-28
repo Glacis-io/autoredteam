@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import shutil
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
@@ -574,7 +573,7 @@ class ImmuneLoop:
         }
         manifest_path = str(Path(self.config.output_dir) / f"manifest_v{version}.json")
         Path(manifest_path).parent.mkdir(parents=True, exist_ok=True)
-        with open(manifest_path, "w") as f:
+        with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
 
         # ----- Local training path (default) -----
@@ -851,7 +850,7 @@ class ImmuneLoop:
         loaded this ensures it reloads from the new weights.
         """
         try:
-            from autoredteam.models.defender import DefenderSLM
+            from autoredteam.models.defender import DefenderSLM  # noqa: F401
             # The defender doesn't have a global cache — instances hold
             # their own model_path.  There's no singleton to invalidate,
             # but we verify the adapter dir exists so callers can trust it.
@@ -960,7 +959,7 @@ class ImmuneLoop:
         existing_path = Path(self.config.training_data_dir) / "judge_examples.jsonl"
         existing_records: list[dict] = []
         if existing_path.exists():
-            with open(existing_path) as f:
+            with open(existing_path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line:
@@ -972,7 +971,7 @@ class ImmuneLoop:
         new_records = [ex.to_training_record() for ex in examples]
         merged = existing_records + new_records
 
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             for record in merged:
                 f.write(json.dumps(record, sort_keys=True) + "\n")
 
@@ -1003,7 +1002,7 @@ class ImmuneLoop:
         """Persist the retrain result as JSON."""
         path = Path(self.config.output_dir) / f"retrain_v{result.version}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(result.to_dict(), f, indent=2)
 
     # ------------------------------------------------------------------

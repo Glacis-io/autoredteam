@@ -8,7 +8,6 @@ existing ones to maximize the composite attack score.
 
 import random
 import hashlib
-import json
 from dataclasses import dataclass, field
 from typing import Optional
 

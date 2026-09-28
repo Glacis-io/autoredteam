@@ -902,7 +902,7 @@ class TestCampaignRunner(unittest.TestCase):
             "timestamp": "2026-01-01T00:00:00Z",
         }
         state_path = Path(self.tmpdir) / "campaign_state.json"
-        with open(state_path, "w") as f:
+        with open(state_path, "w", encoding="utf-8") as f:
             json.dump(state, f)
 
         # Second run with resume: should skip completed probes

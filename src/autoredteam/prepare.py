@@ -311,7 +311,7 @@ def load_target(config_path: str = "config.yaml") -> Target:
         print(f"⚠  No {config_path} found — using EchoTarget for demo.")
         return EchoTarget()
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
     target_cfg = cfg.get("target", {})
@@ -344,7 +344,7 @@ class ScoringRubric:
         path = Path(config_path)
         if not path.exists():
             return cls()
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
         weights = cfg.get("scoring", {}).get("weights", {})
         return cls(

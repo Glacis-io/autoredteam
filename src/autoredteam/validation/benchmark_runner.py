@@ -21,18 +21,15 @@ Usage:
 """
 
 import argparse
-import hashlib
 import json
-import os
 import subprocess
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from autoredteam.prepare import load_target, EchoTarget, Target
-from autoredteam.attack import AttackGenerator, list_categories, category_stats, ATTACK_CATEGORIES
-from autoredteam.scoring import score_attack, ScoreVector, AttackResult, deterministic_score
+from autoredteam.prepare import load_target, EchoTarget
+from autoredteam.attack import AttackGenerator, list_categories
+from autoredteam.scoring import score_attack, AttackResult
 from autoredteam.attestation import AttestationManager
 
 
@@ -232,7 +229,7 @@ def run_speedrun(
 
     # Write report
     report_path = results_dir / "speedrun_report.json"
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 
     # Print summary
@@ -305,7 +302,7 @@ def run_live_benchmark(
         }
         tmp_path = results_dir / "_tmp_config.yaml"
         import yaml
-        with open(tmp_path, "w") as f:
+        with open(tmp_path, "w", encoding="utf-8") as f:
             yaml.dump(tmp_config, f)
 
         target = load_target(str(tmp_path))
@@ -478,7 +475,7 @@ def run_live_benchmark(
     }
 
     report_path = results_dir / f"live_report_{target_type}_{model.replace('/', '_')}.json"
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 
     # Print
@@ -613,7 +610,7 @@ def _run_real_garak(target_type: str, model: str, results_dir: Path, verbose: bo
     }
 
     report_path = results_dir / "garak_report.json"
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
     return report
@@ -630,7 +627,7 @@ def _parse_garak_output(output_dir: Path) -> dict:
 
     # Find any JSONL files
     for jsonl_file in output_dir.glob("*.jsonl"):
-        with open(jsonl_file) as f:
+        with open(jsonl_file, encoding="utf-8") as f:
             for line in f:
                 try:
                     entry = json.loads(line)
@@ -722,7 +719,7 @@ def _generate_comparison_framework(
     }
 
     report_path = results_dir / "comparison_framework.json"
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(framework, f, indent=2)
 
     if verbose:
@@ -849,7 +846,7 @@ def generate_comparison_report(verbose: bool = True) -> dict:
     live_dir = results_dir / "live"
     if live_dir.exists():
         for f in live_dir.glob("live_report_*.json"):
-            with open(f) as fh:
+            with open(f, encoding="utf-8") as fh:
                 art_results = json.load(fh)
                 break
 
@@ -858,7 +855,7 @@ def generate_comparison_report(verbose: bool = True) -> dict:
     comp_dir = results_dir / "comparison"
     if comp_dir.exists():
         for f in comp_dir.glob("garak_report.json"):
-            with open(f) as fh:
+            with open(f, encoding="utf-8") as fh:
                 garak_results = json.load(fh)
                 break
 
@@ -866,7 +863,7 @@ def generate_comparison_report(verbose: bool = True) -> dict:
     framework = {}
     framework_path = comp_dir / "comparison_framework.json" if comp_dir.exists() else None
     if framework_path and framework_path.exists():
-        with open(framework_path) as f:
+        with open(framework_path, encoding="utf-8") as f:
             framework = json.load(f)
 
     comparison = {
@@ -879,7 +876,7 @@ def generate_comparison_report(verbose: bool = True) -> dict:
     }
 
     report_path = results_dir / "comparison_report.json"
-    with open(report_path, "w") as f:
+    with open(report_path, "w", encoding="utf-8") as f:
         json.dump(comparison, f, indent=2)
 
     if verbose:
