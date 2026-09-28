@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 """Run a data generation chunk against Anthropic or OpenAI targets."""
 from __future__ import annotations
-import argparse, json, os, sys, random, time
+import argparse, json, os, random, time
 from pathlib import Path
-from datetime import datetime, timezone
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT))
 
-from attack import AttackGenerator
-from scoring import deterministic_score
+from autoredteam.attack import AttackGenerator
+from autoredteam.scoring import deterministic_score
 
 SCENARIOS = {
     "biomedical": {
@@ -131,9 +129,9 @@ def main():
             pass
     attacks = mutated[:args.max_examples]
 
-    j_file = open(judge_path, "w")
-    d_file = open(defender_path, "w")
-    a_file = open(attacker_path, "w")
+    j_file = open(judge_path, "w", encoding="utf-8")
+    d_file = open(defender_path, "w", encoding="utf-8")
+    a_file = open(attacker_path, "w", encoding="utf-8")
 
     bypasses = errors = 0
 

@@ -20,9 +20,9 @@ import pytest
 # ---------------------------------------------------------------------------
 # Import the dependency-free modules (they gracefully handle missing ML deps)
 # ---------------------------------------------------------------------------
-from conversation import AttackTrajectory, ConversationTurn, DetectionResult
-from models.defender import DefenderSLM, DefenderConfig
-from models.attacker import AttackerSLM, AttackerConfig
+from autoredteam.conversation import AttackTrajectory, ConversationTurn, DetectionResult
+from autoredteam.models.defender import DefenderSLM, DefenderConfig
+from autoredteam.models.attacker import AttackerSLM, AttackerConfig
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +161,7 @@ class TestDefenderInference:
         }):
             # Reload the module so it picks up the mocked ML stack
             import importlib
-            import models.defender as defender_mod
+            import autoredteam.models.defender as defender_mod
             importlib.reload(defender_mod)
 
             try:
@@ -236,7 +236,7 @@ class TestDefenderInference:
 
         # Patch the module-level vars so _model_inference doesn't bail
         with mock.patch.object(type(defender), "__module__", "models.defender"):
-            import models.defender as dmod
+            import autoredteam.models.defender as dmod
             orig_torch = dmod._torch
             dmod._torch = mock_torch
             try:
@@ -274,7 +274,7 @@ class TestDefenderInference:
 
         current = _make_turn("Hello", role="user", turn_index=0)
 
-        import models.defender as dmod
+        import autoredteam.models.defender as dmod
         orig_torch = dmod._torch
         dmod._torch = mock_torch
         try:
@@ -398,7 +398,7 @@ class TestAttackerInference:
             "peft": mock_peft,
         }):
             import importlib
-            import models.attacker as attacker_mod
+            import autoredteam.models.attacker as attacker_mod
             importlib.reload(attacker_mod)
 
             try:
@@ -487,7 +487,7 @@ class TestTrainingPipeline:
 
     def test_lora_trainer_train_defender_returns_adapter(self, tmp_path):
         """LoRATrainer.train_defender() returns a LoRAAdapter with correct metadata."""
-        from training.lora_trainer import LoRATrainer, LoRAAdapter
+        from autoredteam.training.lora_trainer import LoRATrainer, LoRAAdapter
 
         trainer = LoRATrainer(output_root=str(tmp_path / "models"))
         examples = [
@@ -506,7 +506,7 @@ class TestTrainingPipeline:
 
     def test_defender_format_prompt(self):
         """train_defender.py format_prompt produces the expected prompt skeleton."""
-        from training.train_defender import format_prompt, format_completion
+        from autoredteam.training.train_defender import format_prompt, format_completion
 
         example = {
             "conversation": [
@@ -534,7 +534,7 @@ class TestTrainingPipeline:
 
     def test_attacker_format_prompt(self):
         """train_attacker.py format_prompt/format_completion produce correct strings."""
-        from training.train_attacker import format_prompt, format_completion
+        from autoredteam.training.train_attacker import format_prompt, format_completion
 
         example = {
             "target_description": "Extract medical records",
@@ -563,13 +563,13 @@ class TestTrainingPipeline:
 
     def test_training_data_loading_handles_missing_file(self):
         """load_examples returns an empty list for a missing file."""
-        from training.train_defender import load_examples
+        from autoredteam.training.train_defender import load_examples
         result = load_examples("/nonexistent/path/data.jsonl")
         assert result == []
 
     def test_defender_manifest_building(self):
         """build_manifest produces the expected structure with severity buckets."""
-        from training.train_defender import build_manifest, DefenderTrainingConfig
+        from autoredteam.training.train_defender import build_manifest, DefenderTrainingConfig
 
         config = DefenderTrainingConfig()
         examples = [
@@ -600,7 +600,7 @@ class TestImmuneIntegration:
 
     def test_immune_loop_initializes(self, tmp_path):
         """ImmuneLoop initializes without any external training backend."""
-        from immune import ImmuneLoop, ImmuneConfig
+        from autoredteam.immune import ImmuneLoop, ImmuneConfig
 
         config = ImmuneConfig(
             output_dir=str(tmp_path / "results"),
@@ -612,7 +612,7 @@ class TestImmuneIntegration:
 
     def test_local_retrain_path(self, tmp_path):
         """The local retrain path emits a manifest when ML deps are absent."""
-        from immune import ImmuneLoop, ImmuneConfig
+        from autoredteam.immune import ImmuneLoop, ImmuneConfig
 
         config = ImmuneConfig(
             output_dir=str(tmp_path / "results"),
@@ -636,7 +636,7 @@ class TestImmuneIntegration:
 
     def test_swap_defender_exists(self):
         """ImmuneLoop._swap_defender() exists and accepts an adapter path."""
-        from immune import ImmuneLoop, ImmuneConfig
+        from autoredteam.immune import ImmuneLoop, ImmuneConfig
         import tempfile
         with tempfile.TemporaryDirectory() as td:
             config = ImmuneConfig(
@@ -658,8 +658,8 @@ class TestEndToEndFlow:
 
     def test_full_cycle_generate_score_retrain(self, tmp_path):
         """Full cycle: generate attack -> evaluate with defender -> collect in immune -> trigger retrain."""
-        from immune import ImmuneLoop, ImmuneConfig
-        from training.lora_trainer import LoRATrainer
+        from autoredteam.immune import ImmuneLoop, ImmuneConfig
+        from autoredteam.training.lora_trainer import LoRATrainer
 
         # Step 1: Generate attacks
         attacker = AttackerSLM(model_path="/nonexistent/attacker")

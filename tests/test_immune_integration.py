@@ -12,32 +12,31 @@ verifies that:
 
 import json
 import os
-import sys
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
-
-# Ensure the repo root is on sys.path
-REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT))
 
 
 class TestImmuneIntegration(unittest.TestCase):
     """Integration test: autoharden + immune loop, dry-run mode."""
 
     def setUp(self):
-        """Ensure we are in the repo root (autoharden uses relative paths)."""
+        """autoharden writes to relative paths, so run inside a scratch directory."""
         self._orig_cwd = os.getcwd()
-        os.chdir(REPO_ROOT)
+        self._workdir = tempfile.mkdtemp(prefix="autoredteam-immune-")
+        os.chdir(self._workdir)
 
     def tearDown(self):
         os.chdir(self._orig_cwd)
+        shutil.rmtree(self._workdir, ignore_errors=True)
 
     def test_immune_loop_wiring(self):
         """
         Run autoharden with immune enabled for 6 cycles (interval=3).
         Verify collect is called each cycle and retrain triggers at 3 and 6.
         """
-        from immune import ImmuneLoop, ImmuneConfig
+        from autoredteam.immune import ImmuneLoop, ImmuneConfig
 
         # Track calls to collect and retrain
         collect_calls = []
@@ -86,13 +85,13 @@ class TestImmuneIntegration(unittest.TestCase):
             immune_config = ImmuneConfig(**cfg)
             return InstrumentedImmuneLoop(config=immune_config, attestation=attestation)
 
-        import immune as immune_mod
+        import autoredteam.immune as immune_mod
         orig_build = immune_mod.build_immune_loop
 
         try:
             immune_mod.build_immune_loop = patched_build_immune_loop
 
-            from autoharden import autoharden
+            from autoredteam.autoharden import autoharden
 
             result = autoharden(
                 target_type="echo",
@@ -165,12 +164,12 @@ class TestImmuneIntegration(unittest.TestCase):
                           "retrain decision should be KEPT or DISCARDED")
 
         # --- Assertion 4: attestation records include immune_retrain ---
-        evidence_path = REPO_ROOT / "results" / "autoharden" / "evidence_chain.jsonl"
+        evidence_path = Path(self._workdir) / "results" / "autoharden" / "evidence_chain.jsonl"
         self.assertTrue(evidence_path.exists(),
                         f"Evidence chain should exist at {evidence_path}")
 
         evidence_records = []
-        with open(evidence_path) as f:
+        with open(evidence_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -209,7 +208,7 @@ class TestImmuneIntegration(unittest.TestCase):
 
     def test_immune_disabled_by_default(self):
         """When --immune is not passed, no immune loop is created."""
-        from autoharden import autoharden
+        from autoredteam.autoharden import autoharden
 
         result = autoharden(
             target_type="echo",
@@ -227,7 +226,7 @@ class TestImmuneIntegration(unittest.TestCase):
 
     def test_immune_with_dry_run(self):
         """Immune loop runs in dry-run mode (dependency-tolerant)."""
-        from autoharden import autoharden
+        from autoredteam.autoharden import autoharden
 
         # Should not raise even without ML deps
         result = autoharden(
@@ -250,7 +249,7 @@ class TestImmuneIntegration(unittest.TestCase):
 
     def test_immune_module_standalone(self):
         """Unit test the immune module without autoharden."""
-        from immune import ImmuneLoop, ImmuneConfig
+        from autoredteam.immune import ImmuneLoop, ImmuneConfig
 
         config = ImmuneConfig(
             retrain_every_n_cycles=2,

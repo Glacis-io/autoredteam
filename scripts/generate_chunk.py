@@ -6,16 +6,14 @@ from __future__ import annotations
 import argparse
 import json
 import random
-import sys
 import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT))
 
-from attack import AttackGenerator
-from prepare import AnthropicTarget, EchoTarget, GeminiTarget, OpenAITarget
-from scoring import deterministic_score
+from autoredteam.attack import AttackGenerator
+from autoredteam.prepare import AnthropicTarget, EchoTarget, GeminiTarget, OpenAITarget
+from autoredteam.scoring import deterministic_score
 
 
 SCENARIOS = {
@@ -78,7 +76,7 @@ def main() -> int:
     generator = AttackGenerator(seed=seed)
     attacks = generator.generate_batch(batch_size=args.max_examples)
 
-    with open(judge_path, "w") as judge_file, open(defender_path, "w") as defender_file, open(attacker_path, "w") as attacker_file:
+    with open(judge_path, "w", encoding="utf-8") as judge_file, open(defender_path, "w", encoding="utf-8") as defender_file, open(attacker_path, "w", encoding="utf-8") as attacker_file:
         for attack in attacks:
             response = send_with_retry(target, attack.prompt)
             if response.startswith("[ERROR]"):

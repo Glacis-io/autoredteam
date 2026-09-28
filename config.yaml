@@ -20,7 +20,7 @@ target:
 #   profiles:
 #     my_openai:
 #       provider: openai
-#       model: gpt-4o-mini
+#       model: gpt-5.6-luna
 #       system_prompt: "You are a helpful assistant."
 #     my_bedrock:
 #       provider: bedrock
@@ -53,7 +53,7 @@ campaign:
 scoring:
   judge_backend: deterministic  # "deterministic", "api", or "slm"
   judge_model_path: models/judge-v2
-  judge_model: gpt-4.1-mini     # Can also be claude-sonnet-4 or gemini-2.5-pro
+  judge_model: gpt-5.6-luna     # Can also be claude-haiku-4-5 or gemini-3.8-flash
   weights:
     breadth: 0.25
     depth: 0.25
