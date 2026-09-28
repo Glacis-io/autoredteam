@@ -25,6 +25,8 @@ VERSION = __version__
 
 STEALTH_PROFILES = ["none", "light", "medium", "aggressive"]
 JUDGE_BACKENDS = ["deterministic", "api", "slm"]
+SEVERITIES = ["low", "medium", "high", "critical"]
+EXIT_OK, EXIT_GATE_FAILED, EXIT_ERROR = 0, 1, 2
 DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
 DEFAULT_MODELS = {
     "openai": "gpt-5.6-luna",
@@ -91,6 +93,15 @@ def _add_campaign_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--resume", action="store_true", help="Resume interrupted campaign")
     p.add_argument("--attest", action="store_true", help="Write attestation_receipt.json for the evidence chain")
     p.add_argument("--quiet", action="store_true")
+    ci = p.add_argument_group("CI / reporting")
+    ci.add_argument("--format", nargs="*", default=[], choices=["sarif", "junit"],
+                    help="Extra outputs: results.sarif (GitHub code scanning) and/or junit.xml")
+    ci.add_argument("--sarif-artifact", default=None,
+                    help="Repo-relative file SARIF alerts point at (default: --prompt-file, if given)")
+    ci.add_argument("--fail-on", default="none", choices=["none", "any", *SEVERITIES],
+                    help="Exit 1 if any bypass at or above this severity is found")
+    ci.add_argument("--max-asr", type=float, default=None,
+                    help="Exit 1 if the attack success rate (%%) exceeds this value")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -286,7 +297,10 @@ def cmd_run(args: argparse.Namespace) -> int:
     artifacts = None
     try:
         from autoredteam.reporting.generator import ReportGenerator
-        artifacts = ReportGenerator().generate(result, args.output_dir)
+        artifacts = ReportGenerator().generate(
+            result, args.output_dir, formats=args.format,
+            sarif_artifact_uri=args.sarif_artifact or (args.prompt_file or None),
+        )
     except Exception as e:
         print(f"  ⚠ Report generation failed: {e}", file=sys.stderr)
 
@@ -322,10 +336,15 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"  Evidence:      {attestation.get_chain_length()} records, "
               f"chain {'verified' if attestation.local.verify_chain() else 'BROKEN'}")
         print()
+        _print_framework_summary(result.results)
         if artifacts:
             print(f"  📄 Report:     {artifacts.report_md}")
             print(f"  📊 Findings:   {artifacts.findings_jsonl}")
             print(f"  📋 Summary:    {artifacts.summary_txt}")
+            if artifacts.sarif:
+                print(f"  🛡  SARIF:      {artifacts.sarif}")
+            if artifacts.junit_xml:
+                print(f"  🧪 JUnit:      {artifacts.junit_xml}")
         else:
             print(f"  📦 Campaign:   {args.output_dir}/campaign_result.json")
             print(f"  🧾 Results:    {args.output_dir}/probe_results.jsonl")
@@ -334,7 +353,44 @@ def cmd_run(args: argparse.Namespace) -> int:
             print(f"  🧾 Receipt:    {receipt_path}")
         print()
 
-    return 0 if result.summary and result.summary.errors == 0 else 1
+    return _exit_code(result, args)
+
+
+def _print_framework_summary(results: list) -> None:
+    from autoredteam.frameworks import coverage
+
+    cov = coverage(results, "owasp_llm")
+    if not cov:
+        return
+    cells = [f"{fid} {'✗' if stats['bypassed'] else '✓'}" for fid, stats in cov.items()]
+    print(f"  OWASP LLM:     {'  '.join(cells)}")
+    agentic = coverage(results, "owasp_agentic")
+    if agentic:
+        cells = [f"{fid} {'✗' if stats['bypassed'] else '✓'}" for fid, stats in agentic.items()]
+        print(f"  OWASP Agentic: {'  '.join(cells)}")
+    print()
+
+
+def _exit_code(result, args: argparse.Namespace) -> int:
+    """0 = passed, 1 = security gate failed, 2 = probes errored (config/infra problem)."""
+    from autoredteam.reporting.findings import bypassed_results, probe_severity, severity_at_least
+
+    summary = result.summary
+    if summary is None or summary.errors:
+        return EXIT_ERROR
+    reasons = []
+    bypassed = bypassed_results(result.results)
+    if args.fail_on != "none" and bypassed:
+        threshold = "low" if args.fail_on == "any" else args.fail_on
+        hits = [r for r in bypassed if severity_at_least(probe_severity(r.probe), threshold)]
+        if hits:
+            reasons.append(f"{len(hits)} bypass(es) at or above '{threshold}' severity")
+    if args.max_asr is not None and summary.asr > args.max_asr:
+        reasons.append(f"ASR {summary.asr}% exceeds --max-asr {args.max_asr}%")
+    if reasons:
+        print(f"  ✗ Security gate failed: {'; '.join(reasons)}")
+        return EXIT_GATE_FAILED
+    return EXIT_OK
 
 
 SUITE_PACKS = {

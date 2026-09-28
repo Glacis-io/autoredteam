@@ -48,8 +48,10 @@ jobs:
         shell: bash
         run: |
           autoredteam --version
-          autoredteam run --dry-run --quiet --output-dir "$RUNNER_TEMP/art"
+          autoredteam run --dry-run --quiet --output-dir "$RUNNER_TEMP/art" --format sarif junit
           test -s "$RUNNER_TEMP/art/report.md"
+          test -s "$RUNNER_TEMP/art/results.sarif"
+          test -s "$RUNNER_TEMP/art/junit.xml"
 
   build:
     runs-on: ubuntu-latest
