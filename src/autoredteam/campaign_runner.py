@@ -84,6 +84,8 @@ class CampaignRunner:
 
         result = CampaignResult(campaign=campaign, started_at=_utc_now())
         results_path = output_dir / "probe_results.jsonl"
+        if not self.config.resume:
+            results_path.unlink(missing_ok=True)
 
         # Create session if target is specified
         session: Optional[BaseTargetSession] = None

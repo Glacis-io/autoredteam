@@ -97,7 +97,8 @@ class ReportGenerator:
         lines.append(f"")
         lines.append(f"**Campaign:** {campaign.name}")
         lines.append(f"**Mode:** {campaign.mode}")
-        lines.append(f"**Target:** {campaign.target.provider}/{campaign.target.model if campaign.target else 'N/A'}")
+        target_label = f"{campaign.target.provider}/{campaign.target.model}" if campaign.target else "N/A"
+        lines.append(f"**Target:** {target_label}")
         lines.append(f"**Packs:** {', '.join(campaign.pack_ids)}")
         lines.append(f"**Generated:** {campaign_result.completed_at or 'in progress'}")
         lines.append(f"")

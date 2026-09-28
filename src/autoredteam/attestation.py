@@ -341,12 +341,17 @@ class AttestationManager:
 
         return chain_hash
 
-    def end_cycle(self, cycle: int, summary: dict) -> None:
-        """Finalize a cycle — write summary, optionally git commit."""
+    def end_cycle(self, cycle: int, summary: dict, git_commit: bool = False) -> None:
+        """Finalize a cycle — write summary, and git commit only when asked.
+
+        Committing is opt-in: ``git commit`` would also sweep in anything the
+        user already had staged in their working tree.
+        """
         summary["evidence_chain_length"] = len(self.local.load_chain())
         summary["chain_verified"] = self.local.verify_chain()
         self.local.write_summary(summary)
-        self.local.git_commit(f"Cycle {cycle} complete — score {summary.get('best_composite', 'N/A')}")
+        if git_commit:
+            self.local.git_commit(f"Cycle {cycle} complete — score {summary.get('best_composite', 'N/A')}")
         self._cycle_records = []
 
     def get_chain_length(self) -> int:

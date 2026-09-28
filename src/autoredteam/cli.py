@@ -4,10 +4,9 @@ cli.py — Unified CLI entrypoint for autoredteam.
 
 Usage:
     autoredteam run       --provider echo --model echo --pack generic_taxonomy
-    autoredteam harden    --provider openai --model gpt-4o-mini --prompt-file prompt.txt
+    autoredteam harden    --provider openai --model gpt-4.1-mini --prompt-file prompt.txt
     autoredteam validate  --suite overnight --provider echo --model echo
-    autoredteam report    --input results/campaign_result.json
-    autoredteam pr        --input results/ --mode dry_run
+    autoredteam emit-policy results/autoharden/
     autoredteam providers list
     autoredteam packs     list
 """
@@ -16,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 from typing import Optional
 
 from autoredteam import __version__
@@ -23,15 +23,55 @@ from autoredteam import __version__
 
 VERSION = __version__
 
+STEALTH_PROFILES = ["none", "light", "medium", "aggressive"]
+JUDGE_BACKENDS = ["deterministic", "api", "slm"]
+DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
+
 
 def _print_banner():
+    title = f"autoredteam v{VERSION}".center(62)
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗
-║                    autoredteam v{VERSION}                       ║
+║{title}║
 ║         Automated Red-Teaming for AI Systems                 ║
 ║         Multi-cloud · Multi-turn · Stealth · Domain-aware    ║
 ╚══════════════════════════════════════════════════════════════╝
 """)
+
+
+def _add_target_args(p: argparse.ArgumentParser, default_model: str = "gpt-4.1-mini") -> None:
+    g = p.add_argument_group("target")
+    g.add_argument("--provider", default="echo", help="Provider ID (see `autoredteam providers list`)")
+    g.add_argument("--model", default=default_model, help="Model name or catalog alias")
+    g.add_argument("--system-prompt", default=DEFAULT_SYSTEM_PROMPT, help="System prompt for the target")
+    g.add_argument("--prompt-file", default="", help="Read the system prompt from a file")
+    g.add_argument("--endpoint", default="", help="API endpoint / base URL")
+    g.add_argument("--deployment", default="", help="Azure deployment name")
+    g.add_argument("--region", default="", help="Cloud region")
+    g.add_argument("--project", default="", help="GCP project ID")
+    g.add_argument("--account-id", default="", help="Cloudflare account ID")
+    g.add_argument("--dry-run", action="store_true", help="Use the offline echo provider (no API keys)")
+
+
+def _add_judge_args(p: argparse.ArgumentParser) -> None:
+    g = p.add_argument_group("judge")
+    g.add_argument("--judge-backend", default="deterministic", choices=JUDGE_BACKENDS)
+    g.add_argument("--judge-model", default="gpt-4.1-mini",
+                   help="Frontier judge model used when --judge-backend=api")
+    g.add_argument("--judge-model-path", default="models/judge-v2",
+                   help="Local judge SLM checkpoint used when --judge-backend=slm")
+
+
+def _add_campaign_args(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--output-dir", default="results", help="Output directory")
+    p.add_argument("--max-probes", type=int, default=20, help="Max probes per pack")
+    p.add_argument("--max-trajectory-turns", type=int, default=5, help="Max turns per trajectory")
+    p.add_argument("--stealth-profile", default="none", choices=STEALTH_PROFILES)
+    p.add_argument("--intensity", default="medium", choices=["low", "medium", "high"])
+    p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--resume", action="store_true", help="Resume interrupted campaign")
+    p.add_argument("--attest", action="store_true", help="Write attestation_receipt.json for the evidence chain")
+    p.add_argument("--quiet", action="store_true")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,57 +84,38 @@ def build_parser() -> argparse.ArgumentParser:
 
     # --- run ---
     run_p = sub.add_parser("run", help="Run a red-team campaign")
-    run_p.add_argument("--provider", default="echo", help="Provider ID (e.g. openai, anthropic, bedrock, echo)")
-    run_p.add_argument("--model", default="gpt-4o-mini", help="Model name or alias")
+    _add_target_args(run_p)
     run_p.add_argument("--pack", "--packs", nargs="+", default=["generic_taxonomy"], help="Attack pack IDs")
-    run_p.add_argument("--system-prompt", default="You are a helpful assistant.", help="System prompt")
-    run_p.add_argument("--output-dir", default="results", help="Output directory")
-    run_p.add_argument("--max-probes", type=int, default=20, help="Max probes per pack")
-    run_p.add_argument("--max-trajectory-turns", type=int, default=5, help="Max turns per trajectory")
-    run_p.add_argument("--stealth-profile", default="none", choices=["none", "light", "medium", "aggressive"])
-    run_p.add_argument("--intensity", default="medium", choices=["low", "medium", "high"])
-    run_p.add_argument("--judge-backend", default="deterministic", choices=["deterministic", "api", "slm"])
-    run_p.add_argument("--seed", type=int, default=42)
-    run_p.add_argument("--resume", action="store_true", help="Resume interrupted campaign")
-    run_p.add_argument("--dry-run", action="store_true", help="Use echo provider")
-    run_p.add_argument("--quiet", action="store_true")
-    # Provider-specific
-    run_p.add_argument("--endpoint", default="", help="API endpoint / base URL")
-    run_p.add_argument("--deployment", default="", help="Azure deployment name")
-    run_p.add_argument("--region", default="", help="Cloud region")
-    run_p.add_argument("--project", default="", help="GCP project ID")
-    run_p.add_argument("--account-id", default="", help="Cloudflare account ID")
+    _add_campaign_args(run_p)
+    _add_judge_args(run_p)
 
     # --- validate ---
-    val_p = sub.add_parser("validate", help="Run the public validation suite")
+    val_p = sub.add_parser("validate", help="Run a predefined validation suite")
+    _add_target_args(val_p)
     val_p.add_argument("--suite", default="generic", choices=["generic", "overnight", "all"])
-    val_p.add_argument("--provider", default="echo")
-    val_p.add_argument("--model", default="gpt-4o-mini")
-    val_p.add_argument("--system-prompt", default="You are a helpful assistant.")
-    val_p.add_argument("--output-dir", default="results/validation")
-    val_p.add_argument("--stealth-profile", default="none", choices=["none", "light", "medium", "aggressive"])
-    val_p.add_argument("--dry-run", action="store_true")
-    val_p.add_argument("--endpoint", default="")
-    val_p.add_argument("--region", default="")
-    val_p.add_argument("--project", default="")
-    val_p.add_argument("--account-id", default="")
+    _add_campaign_args(val_p)
+    _add_judge_args(val_p)
+    val_p.set_defaults(output_dir="results/validation", intensity="high")
 
     # --- harden ---
-    harden_p = sub.add_parser("harden", help="Unavailable in the OSS kernel")
-    harden_p.add_argument("--provider", default="echo")
-    harden_p.add_argument("--model", default="gpt-4o-mini")
-    harden_p.add_argument("--pack", "--packs", nargs="+", default=["generic_taxonomy"])
-    harden_p.add_argument("--prompt-file", default="", help="Path to system prompt file")
-    harden_p.add_argument("--output-dir", default="results/harden")
-    harden_p.add_argument("--target-score", type=int, default=80)
-    harden_p.add_argument("--create-pr", action="store_true")
-    harden_p.add_argument("--base-branch", default="main")
-    harden_p.add_argument("--system-prompt", default="You are a helpful assistant.")
-    harden_p.add_argument("--dry-run", action="store_true")
-    harden_p.add_argument("--endpoint", default="")
-    harden_p.add_argument("--region", default="")
-    harden_p.add_argument("--project", default="")
-    harden_p.add_argument("--account-id", default="")
+    harden_p = sub.add_parser("harden", help="Run the closed-loop attack → heal → verify hardening loop")
+    _add_target_args(harden_p)
+    harden_p.add_argument("--from-policy", default=None,
+                          help="Start from a prior OVERT policy.toml (recursive hardening)")
+    harden_p.add_argument("--role-name", default="this AI assistant")
+    harden_p.add_argument("--output-dir", default="results/autoharden")
+    harden_p.add_argument("--training-data-dir", default="training_data")
+    harden_p.add_argument("--cycles", type=int, default=10)
+    harden_p.add_argument("--target-score", type=int, default=700, help="Governance score goal (0-1000)")
+    harden_p.add_argument("--batch-size", type=int, default=12)
+    harden_p.add_argument("--attack-cycles", type=int, default=3)
+    harden_p.add_argument("--autonomous", action="store_true", help="Loop until interrupted")
+    harden_p.add_argument("--immune", action="store_true", help="Enable the continual LoRA update loop")
+    harden_p.add_argument("--immune-interval", type=int, default=5)
+    harden_p.add_argument("--immune-threshold", type=int, default=50)
+    harden_p.add_argument("--attest", action="store_true", help="Write attestation_receipt.json")
+    harden_p.add_argument("--quiet", action="store_true")
+    _add_judge_args(harden_p)
 
     # --- report ---
     report_p = sub.add_parser("report", help="Unavailable in the OSS kernel")
@@ -137,27 +158,40 @@ def build_parser() -> argparse.ArgumentParser:
 # Command handlers
 # ---------------------------------------------------------------------------
 
+def _resolve_system_prompt(args: argparse.Namespace) -> str:
+    if getattr(args, "prompt_file", ""):
+        return Path(args.prompt_file).read_text(encoding="utf-8").strip()
+    return args.system_prompt
+
+
+def _target_params(args: argparse.Namespace) -> dict:
+    """Provider-specific connection fields that were actually supplied."""
+    fields = ("endpoint", "deployment", "region", "project", "account_id")
+    return {f: getattr(args, f) for f in fields if getattr(args, f, "")}
+
+
 def cmd_run(args: argparse.Namespace) -> int:
     """Execute a red-team campaign."""
     _print_banner()
 
-    from autoredteam.campaign import TargetRef
     from autoredteam.attack_packs.base import PackBuildContext
     from autoredteam.attack_packs.registry import build_campaign_from_packs
-    from autoredteam.campaign_runner import CampaignRunner, CampaignRunConfig
-    from autoredteam.scoring_v2 import ScoreEngineV2, ScoreConfigV2
+    from autoredteam.attestation import AttestationManager
+    from autoredteam.campaign import TargetRef
+    from autoredteam.campaign_runner import CampaignRunConfig, CampaignRunner
+    from autoredteam.scoring_v2 import ScoreConfigV2, ScoreEngineV2
     from autoredteam.stealth import StealthEngine
+
     provider = "echo" if args.dry_run else args.provider
+    system_prompt = _resolve_system_prompt(args)
     target = TargetRef(
         provider=provider, model=args.model,
-        system_prompt=args.system_prompt,
-        endpoint=args.endpoint, deployment=args.deployment,
-        region=args.region, project=args.project,
-        account_id=args.account_id,
+        system_prompt=system_prompt,
+        **_target_params(args),
     )
 
     context = PackBuildContext(
-        target=target, system_prompt=args.system_prompt,
+        target=target, system_prompt=system_prompt,
         seed=args.seed, intensity=args.intensity,
         max_probes=args.max_probes,
         max_trajectory_turns=args.max_trajectory_turns,
@@ -179,11 +213,21 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"  Output:    {args.output_dir}/")
         print()
 
+    attestation = AttestationManager(output_dir=args.output_dir)
+    if not args.resume:
+        attestation.local.clear()
+
     stealth = StealthEngine(seed=args.seed) if args.stealth_profile != "none" else None
-    score_config = ScoreConfigV2(judge_backend=args.judge_backend)
+    score_config = ScoreConfigV2(
+        judge_backend=args.judge_backend,
+        judge_model=args.judge_model,
+        judge_model_path=args.judge_model_path,
+        use_api_judge=args.judge_backend == "api",
+    )
     runner = CampaignRunner(
         score_engine=ScoreEngineV2(config=score_config),
         stealth_engine=stealth,
+        attestation=attestation,
         config=CampaignRunConfig(output_dir=args.output_dir, resume=args.resume),
     )
 
@@ -192,12 +236,19 @@ def cmd_run(args: argparse.Namespace) -> int:
     artifacts = None
     try:
         from autoredteam.reporting.generator import ReportGenerator
-        reporter = ReportGenerator()
-        artifacts = reporter.generate(result, args.output_dir)
-    except Exception:
-        artifacts = None
+        artifacts = ReportGenerator().generate(result, args.output_dir)
+    except Exception as e:
+        print(f"  ⚠ Report generation failed: {e}", file=sys.stderr)
 
-    # Print summary
+    receipt_path = None
+    if args.attest:
+        receipt_path = attestation.write_receipt(metadata={
+            "campaign_id": campaign.campaign_id,
+            "provider": provider,
+            "model": args.model,
+            "packs": list(args.pack),
+        })
+
     if result.summary:
         s = result.summary
         governance = None
@@ -208,7 +259,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             pass
 
         print(f"\n{'='*60}")
-        print(f"  RESULTS")
+        print("  RESULTS")
         print(f"{'='*60}")
         print(f"  Total probes:  {s.total_probes}")
         print(f"  Bypassed:      {s.bypassed} ({s.asr}% ASR)")
@@ -218,6 +269,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         if governance:
             print(f"  Governance:    {governance.score}/100 (Tier {governance.tier})")
         print(f"  Best score:    {s.best_combined_score}")
+        print(f"  Evidence:      {attestation.get_chain_length()} records, "
+              f"chain {'verified' if attestation.local.verify_chain() else 'BROKEN'}")
         print()
         if artifacts:
             print(f"  📄 Report:     {artifacts.report_md}")
@@ -226,44 +279,76 @@ def cmd_run(args: argparse.Namespace) -> int:
         else:
             print(f"  📦 Campaign:   {args.output_dir}/campaign_result.json")
             print(f"  🧾 Results:    {args.output_dir}/probe_results.jsonl")
+        print(f"  🔗 Evidence:   {attestation.local.evidence_file}")
+        if receipt_path:
+            print(f"  🧾 Receipt:    {receipt_path}")
         print()
 
     return 0 if result.summary and result.summary.errors == 0 else 1
 
 
+SUITE_PACKS = {
+    "generic": ["generic_taxonomy"],
+    "overnight": ["generic_taxonomy", "healthcare", "finance", "hr", "coding_agents"],
+    "all": ["generic_taxonomy", "healthcare", "finance", "hr", "coding_agents"],
+}
+
+
 def cmd_validate(args: argparse.Namespace) -> int:
-    """Run a validation suite."""
-    _print_banner()
-
-    suite_to_packs = {
-        "generic": ["generic_taxonomy"],
-        "overnight": ["generic_taxonomy", "healthcare", "finance", "hr", "coding_agents"],
-        "all": ["generic_taxonomy", "healthcare", "finance", "hr", "coding_agents"],
-    }
-
-    packs = suite_to_packs.get(args.suite, ["generic_taxonomy"])
-    print(f"  Suite: {args.suite} → packs: {', '.join(packs)}")
-
-    # Delegate to run with the appropriate packs
-    args.pack = packs
-    args.max_probes = 20
-    args.max_trajectory_turns = 5
-    args.intensity = "high"
-    args.judge_backend = "deterministic"
-    args.seed = 42
-    args.resume = False
-    args.quiet = False
-    args.deployment = ""
-    if not hasattr(args, "endpoint"):
-        args.endpoint = ""
-
+    """Run a validation suite by delegating to `run` with the suite's packs."""
+    args.pack = SUITE_PACKS.get(args.suite, ["generic_taxonomy"])
+    print(f"  Suite: {args.suite} → packs: {', '.join(args.pack)}")
     return cmd_run(args)
 
 
 def cmd_harden(args: argparse.Namespace) -> int:
-    """Auto-harden is intentionally kept out of the OSS kernel."""
-    print("harden is not available in the OSS kernel.")
-    return 2
+    """Closed-loop hardening: attack, heal the worst cluster, verify, keep or discard."""
+    from autoredteam.autoharden import autoharden
+
+    system_prompt = _resolve_system_prompt(args)
+    role_name = args.role_name
+    if args.from_policy:
+        from autoredteam.emit_policy import load_policy
+        prior = load_policy(args.from_policy)
+        system_prompt = prior["system_prompt"]
+        role_name = prior["role_name"]
+        print(f"  Loaded prior OVERT policy: {args.from_policy}")
+
+    provider = "echo" if args.dry_run else args.provider
+    result = autoharden(
+        target_type=provider,
+        model=args.model,
+        system_prompt=system_prompt,
+        role_name=role_name,
+        max_cycles=args.cycles,
+        target_score=args.target_score,
+        batch_size=args.batch_size,
+        attack_cycles=args.attack_cycles,
+        autonomous=args.autonomous,
+        dry_run=args.dry_run,
+        verbose=not args.quiet,
+        immune_enabled=args.immune,
+        immune_interval=args.immune_interval,
+        immune_threshold=args.immune_threshold,
+        judge_backend=args.judge_backend,
+        judge_model=args.judge_model,
+        judge_model_path=args.judge_model_path,
+        output_dir=args.output_dir,
+        training_data_dir=args.training_data_dir,
+        target_params=_target_params(args),
+    )
+
+    if args.attest:
+        from autoredteam.attestation import AttestationManager
+        mgr = AttestationManager(output_dir=args.output_dir)
+        receipt_path = mgr.write_receipt(metadata={
+            "provider": provider,
+            "model": args.model,
+            "cycles": result.get("cycles", 0),
+        })
+        print(f"  📄 Attestation receipt: {receipt_path}")
+
+    return 0 if result.get("chain_verified", True) else 1
 
 
 def cmd_report(args: argparse.Namespace) -> int:

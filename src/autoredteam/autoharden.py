@@ -117,6 +117,39 @@ class DefenseBlock:
 
 
 # ---------------------------------------------------------------------------
+# Target construction
+# ---------------------------------------------------------------------------
+
+def make_target(
+    target_type: str,
+    model: str,
+    system_prompt: str,
+    dry_run: bool = False,
+    **params,
+) -> Target:
+    """Build a target from the legacy registry or any registered provider.
+
+    Provider sessions expose the same send/reset/capabilities surface as
+    ``prepare.Target``, so every provider in ``autoredteam.providers`` can be
+    hardened, not just the four legacy adapters.
+    """
+    if dry_run or target_type == "echo":
+        return EchoTarget()
+    if target_type in TARGET_REGISTRY and not params:
+        kwargs = {"system_prompt": system_prompt}
+        if model:
+            kwargs["model"] = model
+        return TARGET_REGISTRY[target_type](**kwargs)
+
+    from autoredteam.providers.base import TargetSpec
+    from autoredteam.providers.registry import get_provider_registry
+
+    provider = "google" if target_type == "gemini" else target_type
+    spec = TargetSpec(provider=provider, model=model, system_prompt=system_prompt, **params)
+    return get_provider_registry().create_session(spec)
+
+
+# ---------------------------------------------------------------------------
 # Attack runner (reusable across baseline and verification)
 # ---------------------------------------------------------------------------
 
@@ -273,6 +306,9 @@ def autoharden(
     judge_backend: str = "deterministic",
     judge_model: str = "gpt-4.1-mini",
     judge_model_path: str = "models/judge-v2",
+    output_dir: str | Path = "results/autoharden",
+    training_data_dir: str | Path = "training_data",
+    target_params: dict | None = None,
 ) -> dict:
     """
     The autonomous hardening loop.
@@ -295,8 +331,12 @@ def autoharden(
       The immune loop is dependency-tolerant: it works in dry-run mode
       and without an ML stack installed.
     """
-    output_dir = Path("results/autoharden")
+    output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    target_params = dict(target_params or {})
+
+    def _target_for(prompt: str) -> Target:
+        return make_target(target_type, model, prompt, dry_run=dry_run, **target_params)
 
     attestation = AttestationManager(
         output_dir=str(output_dir),
@@ -304,7 +344,7 @@ def autoharden(
     )
     # Clear evidence from prior runs so this run has a clean chain
     attestation.local.clear()
-    collector = TrainingDataCollector(output_dir="training_data")
+    collector = TrainingDataCollector(output_dir=str(training_data_dir))
 
     # --- Immune loop (continual LoRA updates) ---
     immune = None
@@ -356,11 +396,7 @@ def autoharden(
         print(f"{'━' * 60}")
 
         # --- STEP 1: Create target with current posture ---
-        if dry_run:
-            target = EchoTarget()
-        else:
-            cls = TARGET_REGISTRY.get(target_type)
-            target = cls(model=model, system_prompt=current_prompt)
+        target = _target_for(current_prompt)
 
         # --- STEP 2: Attack current posture ---
         print(f"  ⚔️  Attacking current posture...")
@@ -442,11 +478,7 @@ def autoharden(
                 f"{resolved_addition}"
             )
 
-        if dry_run:
-            hardened_target = EchoTarget()
-        else:
-            cls = TARGET_REGISTRY.get(target_type)
-            hardened_target = cls(model=model, system_prompt=hardened_prompt)
+        hardened_target = _target_for(hardened_prompt)
 
         # --- STEP 7: Verify — re-attack with same suite ---
         print(f"  🔄 Verifying against hardened posture...")
@@ -558,11 +590,7 @@ def autoharden(
     total_time = time.perf_counter() - start_time
 
     # Final metrics
-    if dry_run:
-        final_target = EchoTarget()
-    else:
-        cls = TARGET_REGISTRY.get(target_type)
-        final_target = cls(model=model, system_prompt=current_prompt)
+    final_target = _target_for(current_prompt)
 
     final_results = run_attack_suite(
         final_target, batch_size=batch_size, cycles=attack_cycles,
@@ -609,12 +637,12 @@ def autoharden(
         stats = immune.stats()
         print(f"  Immune retrains:      {stats['retrain_count']}")
         print(f"  Immune examples:      {stats['collected_examples']} collected")
-    print(f"\n  📄 Hardened prompt:    results/autoharden/hardened_prompt.txt")
-    print(f"  📄 Guardrail config:  results/autoharden/guardrail_config.json")
-    print(f"  📄 OVERT policy:      results/autoharden/policy.toml")
-    print(f"  📄 Full report:       results/autoharden/autoharden_report.json")
-    print(f"  📄 Block history:     results/autoharden/block_history.json")
-    print(f"  📄 Evidence chain:    results/autoharden/evidence_chain.jsonl")
+    print(f"\n  📄 Hardened prompt:    {output_dir}/hardened_prompt.txt")
+    print(f"  📄 Guardrail config:  {output_dir}/guardrail_config.json")
+    print(f"  📄 OVERT policy:      {output_dir}/policy.toml")
+    print(f"  📄 Full report:       {output_dir}/autoharden_report.json")
+    print(f"  📄 Block history:     {output_dir}/block_history.json")
+    print(f"  📄 Evidence chain:    {output_dir}/evidence_chain.jsonl")
     print()
 
     if kept_blocks:
