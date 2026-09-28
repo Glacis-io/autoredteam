@@ -20,7 +20,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "run": {"max_cycles": 10, "batch_size": 10, "verbose": True},
     "scoring": {
         "judge_backend": "deterministic",
-        "judge_model": "gpt-4.1-mini",
+        "judge_model": "gpt-5.6-luna",
         "judge_model_path": "models/judge-v2",
     },
     "autoharden": {
@@ -93,7 +93,7 @@ def main() -> int:
     target_score = args.target_score or harden_cfg.get("target_score", 700)
     attack_cycles = args.attack_cycles or harden_cfg.get("attack_cycles", 3)
     judge_backend = args.judge_backend or scoring_cfg.get("judge_backend", "deterministic")
-    judge_model = args.judge_model or scoring_cfg.get("judge_model", "gpt-4.1-mini")
+    judge_model = args.judge_model or scoring_cfg.get("judge_model", "gpt-5.6-luna")
     judge_model_path = args.judge_model_path or scoring_cfg.get("judge_model_path", "models/judge-v2")
     immune_enabled = harden_cfg.get("immune_enabled", False) if args.immune is None else args.immune
     immune_interval = args.immune_interval or harden_cfg.get("immune_interval", 5)

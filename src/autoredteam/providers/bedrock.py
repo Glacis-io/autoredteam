@@ -3,7 +3,8 @@ from __future__ import annotations
 import os, time
 from typing import Any, Optional
 from autoredteam.prepare import TargetCapabilities
-from autoredteam.providers.base import BaseTargetSession, ProviderConfigurationError, ProviderDescriptor, ProviderRequestError, ProviderRateLimitError, ProviderResponse, TargetSpec
+from autoredteam.providers._compat import classify
+from autoredteam.providers.base import BaseTargetSession, ProviderConfigurationError, ProviderDescriptor, ProviderResponse, TargetSpec
 
 class BedrockSession(BaseTargetSession):
     def __init__(self, spec: TargetSpec):
@@ -11,8 +12,8 @@ class BedrockSession(BaseTargetSession):
         try:
             import boto3
         except ImportError:
-            raise ProviderConfigurationError("pip install boto3")
-        region = spec.region or os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+            raise ProviderConfigurationError("pip install 'glacis-autoredteam[cloud]'")
+        region = spec.region or os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
         self._client = boto3.client("bedrock-runtime", region_name=region)
         self._history: list[dict[str, Any]] = []
 
@@ -22,8 +23,8 @@ class BedrockSession(BaseTargetSession):
         try:
             resp = self._client.converse(modelId=self.spec.model, messages=self._history, system=[{"text": self.spec.system_prompt}], inferenceConfig={"temperature": self.spec.temperature, "maxTokens": self.spec.max_output_tokens})
         except Exception as e:
-            if "throttl" in str(e).lower() or "rate" in str(e).lower(): raise ProviderRateLimitError(str(e)) from e
-            raise ProviderRequestError(str(e)) from e
+            self._history.pop()
+            raise classify(e) from e
         latency = (time.monotonic() - t0) * 1000
         output = resp.get("output", {})
         message = output.get("message", {})

@@ -430,7 +430,7 @@ if __name__ == "__main__":
         help=f"Scenario to run. Options: {', '.join(list(SCENARIOS.keys()) + ['all'])}",
     )
     parser.add_argument("--target", default=None, help="Target type (openai, anthropic). Omit for EchoTarget.")
-    parser.add_argument("--model", default="gpt-4o-mini", help="Model name")
+    parser.add_argument("--model", default="gpt-5.6-luna", help="Model name")
     parser.add_argument("--cycles", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--quiet", action="store_true")

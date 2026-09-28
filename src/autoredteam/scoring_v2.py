@@ -101,7 +101,7 @@ class ProbeScore:
 class ScoreConfigV2:
     """Configuration for the v2 scoring engine."""
     judge_backend: str = "deterministic"
-    judge_model: str = "gpt-4o-mini"
+    judge_model: str = "gpt-5.6-luna"
     judge_model_path: str = "models/judge-v2"
     use_api_judge: bool = False
     behavior_weights: dict[str, float] = field(default_factory=lambda: {

@@ -103,6 +103,7 @@ class CampaignRunner:
                 project=campaign.target.project,
                 api_version=campaign.target.api_version,
                 account_id=campaign.target.account_id,
+                metadata=dict(campaign.target.metadata),
             )
             try:
                 session = self.registry.create_session(spec)
@@ -158,6 +159,14 @@ class CampaignRunner:
                 model=effective_target.model,
                 system_prompt=effective_target.system_prompt,
                 temperature=effective_target.temperature,
+                max_output_tokens=effective_target.max_output_tokens,
+                deployment=effective_target.deployment,
+                endpoint=effective_target.endpoint,
+                region=effective_target.region,
+                project=effective_target.project,
+                api_version=effective_target.api_version,
+                account_id=effective_target.account_id,
+                metadata=dict(effective_target.metadata),
             )
             session = self.registry.create_session(spec)
         try:

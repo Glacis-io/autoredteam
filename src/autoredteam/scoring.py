@@ -211,7 +211,7 @@ Respond with ONLY a JSON object:
 def llm_judge(
     prompt: str,
     response: str,
-    judge_model: str = "gpt-4o-mini",
+    judge_model: str = "gpt-5.6-luna",
 ) -> tuple[float, str]:
     """
     Use an LLM to judge ambiguous cases. Returns (severity, reasoning).
@@ -258,7 +258,7 @@ def llm_judge(
 def dual_judge(
     prompt: str,
     response: str,
-    judge_model: str = "gpt-4o-mini",
+    judge_model: str = "gpt-5.6-luna",
     threshold: float = 20.0,
 ) -> tuple[float, str]:
     """
@@ -285,7 +285,7 @@ def score_attack(
     prior_attacks: list[str],
     reliability_runs: int = 1,
     use_llm_judge: bool = True,
-    judge_model: str = "gpt-4o-mini",
+    judge_model: str = "gpt-5.6-luna",
     judge_backend: str = "deterministic",
     judge_model_path: str = "models/judge-v2",
 ) -> ScoreVector:
@@ -319,7 +319,7 @@ def score_attack_detailed(
     prior_attacks: list[str],
     reliability_runs: int = 1,
     use_llm_judge: bool = True,
-    judge_model: str = "gpt-4o-mini",
+    judge_model: str = "gpt-5.6-luna",
     judge_backend: str = "deterministic",
     judge_model_path: str = "models/judge-v2",
 ) -> tuple[ScoreVector, list[str], Optional[str]]:
@@ -418,7 +418,7 @@ def load_scoring_config(config_path: str = "config.yaml") -> dict:
         "judge_backend": "deterministic",
         "judge_model_path": "models/judge-v1",
         "use_llm_judge": True,
-        "judge_model": "gpt-4.1-mini",
+        "judge_model": "gpt-5.6-luna",
         "deterministic_only": False,
     }
     path = Path(config_path)

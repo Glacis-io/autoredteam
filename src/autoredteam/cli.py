@@ -4,7 +4,7 @@ cli.py — Unified CLI entrypoint for autoredteam.
 
 Usage:
     autoredteam run       --provider echo --model echo --pack generic_taxonomy
-    autoredteam harden    --provider openai --model gpt-4.1-mini --prompt-file prompt.txt
+    autoredteam harden    --provider openai --model gpt-5.6-luna --prompt-file prompt.txt
     autoredteam validate  --suite overnight --provider echo --model echo
     autoredteam emit-policy results/autoharden/
     autoredteam providers list
@@ -26,6 +26,16 @@ VERSION = __version__
 STEALTH_PROFILES = ["none", "light", "medium", "aggressive"]
 JUDGE_BACKENDS = ["deterministic", "api", "slm"]
 DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
+DEFAULT_MODELS = {
+    "openai": "gpt-5.6-luna",
+    "azure_openai": "gpt-5.6-luna",
+    "anthropic": "claude-haiku-4-5",
+    "google": "gemini-3.8-flash",
+    "bedrock": "claude-haiku-4-5",
+    "cloudflare": "llama-3.3-70b",
+    "echo": "echo",
+    "http": "",
+}
 
 
 def _print_banner():
@@ -39,10 +49,10 @@ def _print_banner():
 """)
 
 
-def _add_target_args(p: argparse.ArgumentParser, default_model: str = "gpt-4.1-mini") -> None:
+def _add_target_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("target")
     g.add_argument("--provider", default="echo", help="Provider ID (see `autoredteam providers list`)")
-    g.add_argument("--model", default=default_model, help="Model name or catalog alias")
+    g.add_argument("--model", default="", help="Model name or catalog alias (default: per-provider)")
     g.add_argument("--system-prompt", default=DEFAULT_SYSTEM_PROMPT, help="System prompt for the target")
     g.add_argument("--prompt-file", default="", help="Read the system prompt from a file")
     g.add_argument("--endpoint", default="", help="API endpoint / base URL")
@@ -51,12 +61,21 @@ def _add_target_args(p: argparse.ArgumentParser, default_model: str = "gpt-4.1-m
     g.add_argument("--project", default="", help="GCP project ID")
     g.add_argument("--account-id", default="", help="Cloudflare account ID")
     g.add_argument("--dry-run", action="store_true", help="Use the offline echo provider (no API keys)")
+    h = p.add_argument_group("http provider (--provider http)")
+    h.add_argument("--http-header", action="append", default=[], metavar="'Name: value'",
+                   help="Request header, repeatable. Use {{env.VAR}} for secrets")
+    h.add_argument("--http-body", default="",
+                   help="JSON request template or @file. Placeholders: {{prompt}}, {{messages}}, {{history}}, "
+                        "{{system_prompt}}, {{session_id}}, {{env.VAR}}")
+    h.add_argument("--http-response-path", default="", help="Path to reply text, e.g. choices[0].message.content")
+    h.add_argument("--http-method", default="POST")
+    h.add_argument("--http-timeout", type=float, default=60.0)
 
 
 def _add_judge_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("judge")
     g.add_argument("--judge-backend", default="deterministic", choices=JUDGE_BACKENDS)
-    g.add_argument("--judge-model", default="gpt-4.1-mini",
+    g.add_argument("--judge-model", default="gpt-5.6-luna",
                    help="Frontier judge model used when --judge-backend=api")
     g.add_argument("--judge-model-path", default="models/judge-v2",
                    help="Local judge SLM checkpoint used when --judge-backend=slm")
@@ -158,6 +177,10 @@ def build_parser() -> argparse.ArgumentParser:
 # Command handlers
 # ---------------------------------------------------------------------------
 
+def _resolve_model(args: argparse.Namespace, provider: str) -> str:
+    return args.model or DEFAULT_MODELS.get(provider, "")
+
+
 def _resolve_system_prompt(args: argparse.Namespace) -> str:
     if getattr(args, "prompt_file", ""):
         return Path(args.prompt_file).read_text(encoding="utf-8").strip()
@@ -167,7 +190,33 @@ def _resolve_system_prompt(args: argparse.Namespace) -> str:
 def _target_params(args: argparse.Namespace) -> dict:
     """Provider-specific connection fields that were actually supplied."""
     fields = ("endpoint", "deployment", "region", "project", "account_id")
-    return {f: getattr(args, f) for f in fields if getattr(args, f, "")}
+    params = {f: getattr(args, f) for f in fields if getattr(args, f, "")}
+    metadata = _http_metadata(args)
+    if metadata:
+        params["metadata"] = metadata
+    return params
+
+
+def _http_metadata(args: argparse.Namespace) -> dict:
+    if getattr(args, "provider", "") != "http" or getattr(args, "dry_run", False):
+        return {}
+    headers = {}
+    for raw in args.http_header:
+        name, sep, value = raw.partition(":")
+        if not sep:
+            raise ValueError(f"--http-header must look like 'Name: value', got {raw!r}")
+        headers[name.strip()] = value.strip()
+    body = args.http_body
+    if body.startswith("@"):
+        body = Path(body[1:]).read_text(encoding="utf-8")
+    meta: dict = {"http_method": args.http_method, "http_timeout": args.http_timeout}
+    if headers:
+        meta["http_headers"] = headers
+    if body:
+        meta["http_body"] = body
+    if args.http_response_path:
+        meta["http_response_path"] = args.http_response_path
+    return meta
 
 
 def cmd_run(args: argparse.Namespace) -> int:
@@ -183,6 +232,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     from autoredteam.stealth import StealthEngine
 
     provider = "echo" if args.dry_run else args.provider
+    args.model = _resolve_model(args, provider)
     system_prompt = _resolve_system_prompt(args)
     target = TargetRef(
         provider=provider, model=args.model,
@@ -315,6 +365,7 @@ def cmd_harden(args: argparse.Namespace) -> int:
         print(f"  Loaded prior OVERT policy: {args.from_policy}")
 
     provider = "echo" if args.dry_run else args.provider
+    args.model = _resolve_model(args, provider)
     result = autoharden(
         target_type=provider,
         model=args.model,

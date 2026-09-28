@@ -29,16 +29,16 @@ LOOP FOREVER:
 
 Usage:
     # Dry run (echo target, pipeline validation)
-    python autoharden.py --dry-run --cycles 3
+    autoredteam harden --dry-run --cycles 3
 
     # Real hardening against GPT-4o-mini
-    python autoharden.py --target openai --model gpt-4o-mini --cycles 20
+    autoredteam harden --provider openai --model gpt-5.6-luna --cycles 20
 
     # Target a specific governance score
-    python autoharden.py --target openai --model gpt-4o-mini --target-score 700
+    autoredteam harden --provider openai --model gpt-5.6-luna --target-score 700
 
     # Autonomous mode (loop until interrupted)
-    python autoharden.py --target openai --model gpt-4o-mini --autonomous
+    autoredteam harden --provider openai --model gpt-5.6-luna --autonomous
 """
 
 import argparse
@@ -159,7 +159,7 @@ def run_attack_suite(
     cycles: int = 3,
     seed: int = 42,
     judge_backend: str = "deterministic",
-    judge_model: str = "gpt-4.1-mini",
+    judge_model: str = "gpt-5.6-luna",
     judge_model_path: str = "models/judge-v2",
 ) -> list[AttackResult]:
     """Run the full attack suite and return all results."""
@@ -304,7 +304,7 @@ def autoharden(
     immune_interval: int = 5,
     immune_threshold: int = 50,
     judge_backend: str = "deterministic",
-    judge_model: str = "gpt-4.1-mini",
+    judge_model: str = "gpt-5.6-luna",
     judge_model_path: str = "models/judge-v2",
     output_dir: str | Path = "results/autoharden",
     training_data_dir: str | Path = "training_data",
@@ -785,7 +785,7 @@ def main():
         description="autoharden — autonomous self-healing loop"
     )
     parser.add_argument("--target", default="echo", help="Target type")
-    parser.add_argument("--model", default="gpt-4o-mini", help="Model name")
+    parser.add_argument("--model", default="gpt-5.6-luna", help="Model name")
     parser.add_argument("--system-prompt", default=None,
                         help="Initial system prompt (or use a case study)")
     parser.add_argument("--from-policy", default=None,
@@ -811,7 +811,7 @@ def main():
     parser.add_argument("--judge-backend", default="deterministic",
                         choices=["deterministic", "api", "slm"],
                         help="Judge backend override (default: deterministic)")
-    parser.add_argument("--judge-model", default="gpt-4.1-mini",
+    parser.add_argument("--judge-model", default="gpt-5.6-luna",
                         help="Frontier judge model when --judge-backend=api")
     parser.add_argument("--judge-model-path", default="models/judge-v2",
                         help="Judge model path (default: models/judge-v2)")

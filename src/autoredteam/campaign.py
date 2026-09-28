@@ -8,6 +8,7 @@ all consume this shared vocabulary.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -56,7 +57,25 @@ class TargetRef:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return {k: v for k, v in asdict(self).items() if v}
+        d = {k: v for k, v in asdict(self).items() if v}
+        headers = d.get("metadata", {}).get("http_headers")
+        if headers:
+            d["metadata"] = {**d["metadata"], "http_headers": redact_headers(headers)}
+        return d
+
+
+_SECRET_HEADER = re.compile(r"auth|token|key|secret|cookie|session|password", re.IGNORECASE)
+
+
+def redact_headers(headers: dict[str, str]) -> dict[str, str]:
+    """Mask literal credentials before headers are persisted; ``{{env.X}}`` templates are kept."""
+    out = {}
+    for name, value in headers.items():
+        if _SECRET_HEADER.search(name) and "{{" not in str(value):
+            out[name] = "***redacted***"
+        else:
+            out[name] = value
+    return out
 
 
 # ---------------------------------------------------------------------------

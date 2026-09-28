@@ -11,13 +11,13 @@ Usage:
     python validation/benchmark_runner.py --mode speedrun
 
     # Live benchmark against OpenAI
-    python validation/benchmark_runner.py --mode live --target openai --model gpt-4o-mini
+    python validation/benchmark_runner.py --mode live --target openai --model gpt-5.6-luna
 
     # Head-to-head comparison (runs autoredteam then Garak)
-    python validation/benchmark_runner.py --mode compare --target openai --model gpt-4o-mini
+    python validation/benchmark_runner.py --mode compare --target openai --model gpt-5.6-luna
 
     # Full validation (speedrun + live + comparison report)
-    python validation/benchmark_runner.py --mode full --target openai --model gpt-4o-mini
+    python validation/benchmark_runner.py --mode full --target openai --model gpt-5.6-luna
 """
 
 import argparse
@@ -263,7 +263,7 @@ def run_speedrun(
 
 def run_live_benchmark(
     target_type: str = "openai",
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5.6-luna",
     cycles: int = 3,
     batch_size: int = 8,
     use_llm_judge: bool = False,
@@ -512,7 +512,7 @@ def run_live_benchmark(
 
 def run_garak_comparison(
     target_type: str = "openai",
-    model: str = "gpt-4o-mini",
+    model: str = "gpt-5.6-luna",
     verbose: bool = True,
 ) -> dict:
     """
@@ -903,7 +903,7 @@ def _compute_verdict(art: dict, garak: dict) -> dict:
     else:
         verdict["summary"] = (
             "Comparison pending. Run: "
-            "python validation/benchmark_runner.py --mode full --target openai --model gpt-4o-mini"
+            "python validation/benchmark_runner.py --mode full --target openai --model gpt-5.6-luna"
         )
 
     # The structural advantage is always there
@@ -941,7 +941,7 @@ def main():
         help="Benchmark mode to run",
     )
     parser.add_argument("--target", default="openai", help="Target type (openai, anthropic)")
-    parser.add_argument("--model", default="gpt-4o-mini", help="Model name")
+    parser.add_argument("--model", default="gpt-5.6-luna", help="Model name")
     parser.add_argument("--cycles", type=int, default=None, help="Override cycle count")
     parser.add_argument("--batch-size", type=int, default=None, help="Override batch size")
     parser.add_argument("--llm-judge", action="store_true", help="Enable LLM-as-judge scoring")

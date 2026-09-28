@@ -71,194 +71,78 @@ class Target(ABC):
 
 
 # ---------------------------------------------------------------------------
-# OpenAI target (the default example)
+# Provider-backed targets
 # ---------------------------------------------------------------------------
 
-class OpenAITarget(Target):
-    """
-    Connects to any OpenAI-compatible API (OpenAI, Azure, local vLLM, etc.).
-    Set OPENAI_API_KEY and optionally OPENAI_BASE_URL in your environment.
-    """
+class _ProviderTarget(Target):
+    """Adapts a ``providers`` session to the simple ``Target`` protocol."""
+
+    provider_id = ""
+    default_model = ""
 
     def __init__(
         self,
-        model: str = "gpt-4o-mini",
+        model: str = "",
         system_prompt: str = "You are a helpful assistant.",
         temperature: float = 0.0,
-        base_url: Optional[str] = None,
         api_key: Optional[str] = None,
+        **spec_fields,
     ):
-        try:
-            from openai import OpenAI
-        except ImportError:
-            raise ImportError(
-                "pip install openai  — required for the OpenAI target."
-            )
+        from autoredteam.providers.base import TargetSpec
+        from autoredteam.providers.registry import get_provider_registry
 
-        self.model = model
+        self.model = model or self.default_model
         self.system_prompt = system_prompt
         self.temperature = temperature
-        self._client = OpenAI(
-            api_key=api_key or os.environ.get("OPENAI_API_KEY"),
-            base_url=base_url or os.environ.get("OPENAI_BASE_URL"),
+        spec = TargetSpec(
+            provider=self.provider_id, model=self.model, system_prompt=system_prompt,
+            temperature=temperature, api_key=api_key or "", **spec_fields,
         )
-        self._history: list[dict] = []
+        self._session = get_provider_registry().create_session(spec)
 
     def send(self, prompt: str) -> str:
-        messages = [{"role": "system", "content": self.system_prompt}]
-        messages += self._history
-        messages.append({"role": "user", "content": prompt})
-
-        response = self._client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=self.temperature,
-        )
-        reply = response.choices[0].message.content or ""
-        self._history.append({"role": "user", "content": prompt})
-        self._history.append({"role": "assistant", "content": reply})
-        return reply
+        return self._session.send_user_turn(prompt).text
 
     def send_turn(self, prompt: str, turn_index: int = 0) -> str:
-        return self.send(prompt)
+        return self._session.send_user_turn(prompt, turn_index=turn_index).text
 
     def reset(self) -> None:
-        self._history = []
+        self._session.reset()
 
     def capabilities(self) -> TargetCapabilities:
-        return TargetCapabilities(
-            multi_turn=True,
-            system_prompt_configurable=True,
-        )
+        return self._session.capabilities()
 
     def get_history(self) -> list[dict]:
-        return list(self._history)
-
-
-# ---------------------------------------------------------------------------
-# Anthropic target
-# ---------------------------------------------------------------------------
-
-class AnthropicTarget(Target):
-    """Connects to Anthropic's Claude API."""
-
-    def __init__(
-        self,
-        model: str = "claude-sonnet-4-20250514",
-        system_prompt: str = "You are a helpful assistant.",
-        temperature: float = 0.0,
-        api_key: Optional[str] = None,
-    ):
-        try:
-            import anthropic
-        except ImportError:
-            raise ImportError(
-                "pip install anthropic  — required for the Anthropic target."
-            )
-
-        self.model = model
-        self.system_prompt = system_prompt
-        self.temperature = temperature
-        self._client = anthropic.Anthropic(
-            api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"),
-        )
-        self._history: list[dict] = []
-
-    def send(self, prompt: str) -> str:
-        self._history.append({"role": "user", "content": prompt})
-        response = self._client.messages.create(
-            model=self.model,
-            system=self.system_prompt,
-            messages=self._history,
-            temperature=self.temperature,
-            max_tokens=4096,
-        )
-        reply = response.content[0].text
-        self._history.append({"role": "assistant", "content": reply})
-        return reply
-
-    def send_turn(self, prompt: str, turn_index: int = 0) -> str:
-        return self.send(prompt)
-
-    def reset(self) -> None:
-        self._history = []
-
-    def capabilities(self) -> TargetCapabilities:
-        return TargetCapabilities(
-            multi_turn=True,
-            system_prompt_configurable=True,
-        )
-
-    def get_history(self) -> list[dict]:
-        return list(self._history)
-
-
-# ---------------------------------------------------------------------------
-# Google Gemini target
-# ---------------------------------------------------------------------------
-
-class GeminiTarget(Target):
-    """Connects to Google's Gemini API."""
-
-    def __init__(
-        self,
-        model: str = "gemini-2.5-pro",
-        system_prompt: str = "You are a helpful assistant.",
-        temperature: float = 0.0,
-        api_key: Optional[str] = None,
-    ):
-        try:
-            import google.generativeai as genai
-        except ImportError:
-            raise ImportError(
-                "pip install google-generativeai  — required for the Gemini target."
-            )
-
-        self.model_name = model
-        self.system_prompt = system_prompt
-        self.temperature = temperature
-        genai.configure(api_key=api_key or os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY"))
-        self._model = genai.GenerativeModel(
-            model_name=model,
-            system_instruction=system_prompt,
-        )
-        self._chat = None
-        self._history: list[dict] = []
-
-    def send(self, prompt: str) -> str:
-        if self._chat is None:
-            chat_kwargs = {}
-            if self._history:
-                chat_kwargs["history"] = self._history
-            self._chat = self._model.start_chat(**chat_kwargs)
-        response = self._chat.send_message(
-            prompt,
-            generation_config={"temperature": self.temperature, "max_output_tokens": 4096},
-        )
-        reply = response.text or ""
-        self._history.append({"role": "user", "content": prompt})
-        self._history.append({"role": "model", "content": reply})
-        return reply
-
-    def send_turn(self, prompt: str, turn_index: int = 0) -> str:
-        return self.send(prompt)
-
-    def reset(self) -> None:
-        self._chat = None
-        self._history = []
-
-    def capabilities(self) -> TargetCapabilities:
-        return TargetCapabilities(
-            multi_turn=True,
-            system_prompt_configurable=True,
-        )
+        return self._session.history()
 
     @property
     def name(self) -> str:
-        return f"GeminiTarget({self.model_name})"
+        return f"{self.__class__.__name__}({self.model})"
 
-    def get_history(self) -> list[dict]:
-        return list(self._history)
+
+class OpenAITarget(_ProviderTarget):
+    """OpenAI, or any OpenAI-compatible server when ``base_url`` is given."""
+
+    provider_id = "openai"
+    default_model = "gpt-5.6-luna"
+
+    def __init__(self, model: str = "", system_prompt: str = "You are a helpful assistant.",
+                 temperature: float = 0.0, base_url: Optional[str] = None, api_key: Optional[str] = None):
+        if base_url:
+            self.provider_id = "openai_compatible"
+        if base_url and not api_key:
+            api_key = os.environ.get("OPENAI_API_KEY")
+        super().__init__(model, system_prompt, temperature, api_key=api_key, endpoint=base_url or "")
+
+
+class AnthropicTarget(_ProviderTarget):
+    provider_id = "anthropic"
+    default_model = "claude-haiku-4-5"
+
+
+class GeminiTarget(_ProviderTarget):
+    provider_id = "google"
+    default_model = "gemini-3.8-flash"
 
 
 # ---------------------------------------------------------------------------

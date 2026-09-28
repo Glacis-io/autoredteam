@@ -38,9 +38,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-openai = ["openai>=1.40,<3.0"]
-anthropic = ["anthropic>=0.40,<1.0"]
-google = ["google-generativeai>=0.8,<1.0"]
+openai = ["openai>=1.66,<4"]
+anthropic = ["anthropic>=0.40,<2"]
+google = ["google-genai>=1.0,<3"]
 cloud = ["boto3>=1.34,<2.0"]
 training = [
     "torch>=2.0",

@@ -26,9 +26,11 @@ class CloudflareWorkersAISession(BaseTargetSession):
             with urllib.request.urlopen(req, timeout=120) as resp:
                 data = json.loads(resp.read())
         except urllib.error.HTTPError as e:
+            self._history.pop()
             if e.code == 429: raise ProviderRateLimitError(str(e)) from e
             raise ProviderRequestError(str(e)) from e
         except Exception as e:
+            self._history.pop()
             raise ProviderRequestError(str(e)) from e
         latency = (time.monotonic() - t0) * 1000
         text = data.get("result", {}).get("response", "")

@@ -650,15 +650,15 @@ class TestTrajectoryEngine(unittest.TestCase):
 class TestProviderRegistry(unittest.TestCase):
     """Provider registration, echo session, model alias resolution."""
 
-    def test_all_8_providers_registered(self):
+    def test_all_builtin_providers_registered(self):
         from autoredteam.providers.registry import get_provider_registry
         registry = get_provider_registry()
         providers = registry.list_providers()
         provider_ids = {p.provider_id for p in providers}
         expected = {"echo", "openai", "azure_openai", "anthropic", "google",
-                    "bedrock", "cloudflare", "openai_compatible"}
+                    "bedrock", "cloudflare", "openai_compatible", "http"}
         self.assertEqual(provider_ids, expected)
-        self.assertEqual(len(providers), 8)
+        self.assertEqual(len(providers), 9)
 
     def test_echo_session_lifecycle(self):
         from autoredteam.providers.base import TargetSpec
@@ -1204,7 +1204,7 @@ class TestCLIIntegration(unittest.TestCase):
             exit_code = main(["providers", "list"])
         self.assertEqual(exit_code, 0)
         output = f.getvalue()
-        self.assertIn("8", output)  # Should mention 8 providers
+        self.assertIn("Available Providers (9)", output)
 
     def test_cli_packs_list(self):
         from autoredteam.cli import main

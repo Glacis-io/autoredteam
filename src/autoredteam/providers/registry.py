@@ -54,6 +54,7 @@ def _register_builtins(registry: ProviderRegistry) -> None:
     from autoredteam.providers.cloudflare_workers import register as r6
     from autoredteam.providers.openai_compatible import register as r7
     from autoredteam.providers.echo import register as r8
+    from autoredteam.providers.http_endpoint import register as r9
 
-    for register in [r1, r2, r3, r4, r5, r6, r7, r8]:
+    for register in [r1, r2, r3, r4, r5, r6, r7, r9, r8]:
         register(registry)
